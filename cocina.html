@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antuan — Pantalla Cocina</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0D0D0D;
+      color: #FFF;
+      font-family: 'Arial', sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 0 20px;
+      border-bottom: 2px solid #1A1A1A;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #FF4D00, #FF8C00);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFF;
+    }
+    .header p {
+      font-size: 12px;
+      color: #555;
+      margin-top: 2px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1A1A1A;
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #00C864;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .status span {
+      font-size: 13px;
+      color: #00C864;
+      font-weight: 500;
+    }
+    .status.offline span { color: #FF4D4D; }
+    .status.offline .status-dot { background: #FF4D4D; }
+    .hora {
+      font-size: 13px;
+      color: #555;
+    }
+
+    /* FILTROS DE ESTADO */
+    .filtros {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filtro-btn {
+      background: #1A1A1A;
+      border: 1px solid #2A2A2A;
+      color: #999;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filtro-btn:hover {
+      border-color: #444;
+      color: #DDD;
+    }
+    .filtro-btn.activo {
+      background: #FF4D00;
+      border-color: #FF4D00;
+      color: #FFF;
+    }
+    .filtro-count {
+      background: rgba(255,255,255,0.15);
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* EMPTY STATE */
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 50vh;
+      gap: 16px;
+      color: #333;
+    }
+    .empty-icon { font-size: 64px; }
+    .empty p { font-size: 18px; }
+
+    /* GRID DE MESAS */
+    .mesas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    /* TARJETA DE MESA */
+    .mesa-card {
+      background: #1A1A1A;
+      border: 2px solid #2A2A2A;
+      border-radius: 16px;
+      padding: 18px 20px 16px;
+      position: relative;
+      animation: slideIn 0.3s ease;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      display: flex;
+      flex-direction: column;
+    }
+    .mesa-card.estado-pendiente {
+      border-color: #FF4D00;
+      box-shadow: 0 0 18px rgba(255,77,0,0.18);
+    }
+    .mesa-card.estado-en_preparacion {
+      border-color: #F5B400;
+      box-shadow: 0 0 18px rgba(245,180,0,0.16);
+    }
+    .mesa-card.estado-listo {
+      border-color: #00C864;
+      box-shadow: 0 0 18px rgba(0,200,100,0.16);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .mesa-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .mesa-numero {
+      font-size: 28px;
+      font-weight: 900;
+      color: #FF4D00;
+      line-height: 1;
+    }
+    .mesa-label {
+      font-size: 11px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+    .mesa-meta {
+      text-align: right;
+      font-size: 12px;
+      color: #777;
+    }
+    .mesa-meta .nuevo-badge {
+      display: inline-block;
+      background: #FF4D00;
+      color: #FFF;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+      margin-top: 4px;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+
+    /* GRUPO POR PEDIDO */
+    .pedido-bloque {
+      border-top: 1px solid #2A2A2A;
+      padding-top: 12px;
+      margin-top: 6px;
+    }
+    .pedido-bloque:first-of-type {
+      border-top: 1px solid #2A2A2A;
+    }
+    .pedido-bloque-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .pedido-bloque-estado {
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .estado-pill-pendiente {
+      background: rgba(255,77,0,0.15);
+      color: #FF8C00;
+    }
+    .estado-pill-en_preparacion {
+      background: rgba(245,180,0,0.15);
+      color: #F5B400;
+    }
+    .estado-pill-listo {
+      background: rgba(0,200,100,0.15);
+      color: #00C864;
+    }
+
+    .item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid #222;
+    }
+    .item:last-child { border-bottom: none; }
+    .item-cantidad {
+      background: #FF4D00;
+      color: #FFF;
+      font-size: 12px;
+      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .item-nombre {
+      font-size: 15px;
+      font-weight: 500;
+      color: #EEE;
+      line-height: 1.3;
+    }
+    .item-nota {
+      font-size: 12px;
+      color: #FF8C00;
+      margin-top: 2px;
+    }
+
+    /* ACCIONES POR PEDIDO */
+    .pedido-acciones {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .btn-accion {
+      flex: 1;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+      color: #FFF;
+    }
+    .btn-accion:active { transform: scale(0.98); }
+    .btn-accion[disabled] {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-empezar {
+      background: #F5B400;
+      color: #1A1A1A;
+    }
+    .btn-empezar:hover { background: #FFC830; }
+    .btn-listo {
+      background: #00C864;
+    }
+    .btn-listo:hover { background: #00DC73; }
+    .btn-cancelar {
+      background: #2A2A2A;
+      color: #BBB;
+      flex: 0 0 auto;
+      padding: 10px 14px;
+    }
+    .btn-cancelar:hover { background: #3A3A3A; color: #FFF; }
+
+    /* CONTADOR */
+    .contador {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #FF4D00;
+      color: #FFF;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 900;
+      display: none;
+      z-index: 50;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      .mesa-numero { font-size: 24px; }
+      .mesa-card { padding: 14px 16px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">A</div>
+      <div>
+        <h1>Pantalla Cocina</h1>
+        <p>Pedidos en tiempo real</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status offline" id="statusBadge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Sin conexión</span>
+      </div>
+      <div class="hora" id="reloj">--:--</div>
+    </div>
+  </div>
+
+  <!-- FILTROS POR ESTADO -->
+  <div class="filtros" id="filtros">
+    <button class="filtro-btn activo" data-filtro="activos">
+      Activos <span class="filtro-count" id="countActivos">0</span>
+    </button>
+    <button class="filtro-btn" data-filtro="pendiente">
+      Pendiente <span class="filtro-count" id="countPendiente">0</span>
+    </button>
+    <button class="filtro-btn" data-filtro="en_preparacion">
+      En preparación <span class="filtro-count" id="countPreparacion">0</span>
+    </button>
+    <button class="filtro-btn" data-filtro="listo">
+      Listos <span class="filtro-count" id="countListo">0</span>
+    </button>
+  </div>
+
+  <div id="contenido">
+    <div class="empty" id="emptyState" style="display: flex;">
+      <div class="empty-icon">🍳</div>
+      <p>Esperando pedidos...</p>
+    </div>
+    <div class="mesas-grid" id="mesasGrid"></div>
+  </div>
+
+  <div class="contador" id="contador">0</div>
+
+  <script>
+    const PROXY_URL = 'https://affectionate-clarity-production-f27b.up.railway.app';
+    const POLL_MS = 3000;
+
+    // Estado de la UI
+    let filtroActual = 'activos';
+    let pedidos = [];          // todos los pedidos relevantes (activos + listos recientes)
+    const idsConocidos = new Set();
+    const pedidosListosOcultos = new Set(); // ids ya retirados manualmente
+
+    // Reloj en tiempo real
+    function actualizarReloj() {
+      const ahora = new Date();
+      document.getElementById('reloj').textContent =
+        ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    }
+    actualizarReloj();
+    setInterval(actualizarReloj, 1000);
+
+    // Sonido de notificación al llegar un pedido nuevo
+    function sonarNotificacion() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [523, 659, 784].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+          osc.start(ctx.currentTime + i * 0.15);
+          osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+        });
+      } catch (e) {}
+    }
+
+    function setEstadoConexion(online) {
+      const badge = document.getElementById('statusBadge');
+      const text = document.getElementById('statusText');
+      badge.classList.toggle('offline', !online);
+      text.textContent = online ? 'Conectado' : 'Sin conexión';
+    }
+
+    // FILTROS
+    document.querySelectorAll('.filtro-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filtro-btn').forEach((b) =>
+          b.classList.remove('activo')
+        );
+        btn.classList.add('activo');
+        filtroActual = btn.dataset.filtro;
+        renderizar();
+      });
+    });
+
+    function etiquetaEstado(estado) {
+      switch (estado) {
+        case 'pendiente': return 'PENDIENTE';
+        case 'en_preparacion': return 'EN PREPARACIÓN';
+        case 'listo': return 'LISTO';
+        default: return estado.toUpperCase();
+      }
+    }
+
+    function estadoPrioridad(estado) {
+      // Para colorear la mesa por el estado "más urgente"
+      if (estado === 'pendiente') return 3;
+      if (estado === 'en_preparacion') return 2;
+      return 1;
+    }
+
+    async function cambiarEstado(id, estadoNuevo) {
+      try {
+        const res = await fetch(`${PROXY_URL}/api/pedidos/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado: estadoNuevo })
+        });
+        if (!res.ok) throw new Error('estado');
+        const actualizado = await res.json();
+        const idx = pedidos.findIndex((p) => p.id === id);
+        if (idx !== -1) pedidos[idx] = actualizado;
+        if (estadoNuevo === 'listo') {
+          // Lo quitamos a los 30s del grid para que cocina vea durante un rato que se terminó
+          setTimeout(() => {
+            pedidosListosOcultos.add(id);
+            renderizar();
+          }, 30000);
+        }
+        renderizar();
+      } catch (e) {
+        console.error('No se pudo cambiar el estado del pedido:', e);
+      }
+    }
+
+    async function cancelarPedido(id) {
+      if (!confirm('¿Cancelar este pedido?')) return;
+      try {
+        const res = await fetch(`${PROXY_URL}/api/pedidos/${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('cancelar');
+        pedidos = pedidos.filter((p) => p.id !== id);
+        idsConocidos.delete(id);
+        renderizar();
+      } catch (e) {
+        console.error('No se pudo cancelar el pedido:', e);
+      }
+    }
+
+    async function sincronizar() {
+      try {
+        const res = await fetch(`${PROXY_URL}/api/pedidos?estado=todos`);
+        if (!res.ok) throw new Error('pedidos');
+        const lista = await res.json();
+        setEstadoConexion(true);
+
+        if (!Array.isArray(lista)) return;
+
+        let hayPedidoNuevo = false;
+        const idsServidor = new Set(lista.map((p) => p.id));
+
+        // Detectar pedidos nuevos para sonar
+        lista.forEach((p) => {
+          if (!idsConocidos.has(p.id) && p.estado === 'pendiente') {
+            hayPedidoNuevo = true;
+          }
+          idsConocidos.add(p.id);
+        });
+
+        // Conservamos solo los pedidos que aún existen en el servidor
+        pedidos = lista.filter((p) => !pedidosListosOcultos.has(p.id));
+
+        if (hayPedidoNuevo) sonarNotificacion();
+
+        renderizar();
+      } catch (e) {
+        console.error('Cocina: error de sincronización', e);
+        setEstadoConexion(false);
+      }
+    }
+
+    function agruparPorMesa(lista) {
+      const mapa = new Map();
+      lista.forEach((p) => {
+        if (!mapa.has(p.mesa)) {
+          mapa.set(p.mesa, {
+            mesa: p.mesa,
+            pedidos: [],
+            createdAt: p.createdAt,
+            ultimaActualizacion: p.updatedAt || p.createdAt,
+            estadoUrgente: p.estado,
+          });
+        }
+        const grupo = mapa.get(p.mesa);
+        grupo.pedidos.push(p);
+        grupo.createdAt = Math.min(grupo.createdAt, p.createdAt);
+        grupo.ultimaActualizacion = Math.max(
+          grupo.ultimaActualizacion,
+          p.updatedAt || p.createdAt
+        );
+        if (estadoPrioridad(p.estado) > estadoPrioridad(grupo.estadoUrgente)) {
+          grupo.estadoUrgente = p.estado;
+        }
+      });
+      // Ordenar pedidos dentro de cada mesa cronológicamente
+      mapa.forEach((grupo) => {
+        grupo.pedidos.sort((a, b) => a.createdAt - b.createdAt);
+      });
+      // Ordenar mesas por el pedido más antiguo pendiente
+      return [...mapa.values()].sort((a, b) => a.createdAt - b.createdAt);
+    }
+
+    function filtrarPedidos(lista) {
+      if (filtroActual === 'activos') {
+        return lista.filter(
+          (p) => p.estado === 'pendiente' || p.estado === 'en_preparacion'
+        );
+      }
+      return lista.filter((p) => p.estado === filtroActual);
+    }
+
+    function actualizarContadores() {
+      const activos = pedidos.filter(
+        (p) => p.estado === 'pendiente' || p.estado === 'en_preparacion'
+      ).length;
+      const pendientes = pedidos.filter((p) => p.estado === 'pendiente').length;
+      const enPrep = pedidos.filter((p) => p.estado === 'en_preparacion').length;
+      const listos = pedidos.filter((p) => p.estado === 'listo').length;
+
+      document.getElementById('countActivos').textContent = activos;
+      document.getElementById('countPendiente').textContent = pendientes;
+      document.getElementById('countPreparacion').textContent = enPrep;
+      document.getElementById('countListo').textContent = listos;
+
+      const contador = document.getElementById('contador');
+      if (activos > 0) {
+        contador.style.display = 'flex';
+        contador.textContent = activos;
+      } else {
+        contador.style.display = 'none';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function renderizar() {
+      actualizarContadores();
+
+      const grid = document.getElementById('mesasGrid');
+      const empty = document.getElementById('emptyState');
+
+      const visibles = filtrarPedidos(pedidos);
+
+      if (visibles.length === 0) {
+        empty.style.display = 'flex';
+        grid.innerHTML = '';
+        return;
+      }
+      empty.style.display = 'none';
+
+      const grupos = agruparPorMesa(visibles);
+
+      grid.innerHTML = grupos
+        .map((grupo) => {
+          const totalItems = grupo.pedidos.reduce(
+            (acc, p) => acc + p.items.reduce((s, i) => s + (i.cantidad || 1), 0),
+            0
+          );
+          const ahora = Date.now();
+          const tiempo = Math.max(
+            0,
+            Math.floor((ahora - grupo.createdAt) / 60000)
+          );
+          const hayPendiente = grupo.pedidos.some(
+            (p) => p.estado === 'pendiente'
+          );
+
+          return `
+            <div class="mesa-card estado-${grupo.estadoUrgente}">
+              <div class="mesa-header">
+                <div>
+                  <div class="mesa-numero">${escapeHtml(grupo.mesa)}</div>
+                  <div class="mesa-label">Mesa · ${totalItems} ${
+            totalItems === 1 ? 'producto' : 'productos'
+          }</div>
+                </div>
+                <div class="mesa-meta">
+                  ${tiempo > 0 ? `hace ${tiempo} min` : 'hace un momento'}
+                  ${hayPendiente ? '<br><div class="nuevo-badge">NUEVO</div>' : ''}
+                </div>
+              </div>
+
+              ${grupo.pedidos
+                .map(
+                  (p) => `
+                <div class="pedido-bloque">
+                  <div class="pedido-bloque-header">
+                    <span>Pedido #${escapeHtml(p.id)} · ${escapeHtml(p.hora || '')}</span>
+                    <span class="pedido-bloque-estado estado-pill-${p.estado}">${etiquetaEstado(
+                    p.estado
+                  )}</span>
+                  </div>
+                  ${p.items
+                    .map(
+                      (item) => `
+                    <div class="item">
+                      <div class="item-cantidad">${item.cantidad}</div>
+                      <div>
+                        <div class="item-nombre">${escapeHtml(item.nombre)}</div>
+                        ${
+                          item.nota
+                            ? `<div class="item-nota">⚠️ ${escapeHtml(item.nota)}</div>`
+                            : ''
+                        }
+                      </div>
+                    </div>
+                  `
+                    )
+                    .join('')}
+                  <div class="pedido-acciones">
+                    ${
+                      p.estado === 'pendiente'
+                        ? `<button class="btn-accion btn-empezar" onclick="cambiarEstado('${p.id}','en_preparacion')">▶ Empezar</button>`
+                        : ''
+                    }
+                    ${
+                      p.estado === 'en_preparacion'
+                        ? `<button class="btn-accion btn-listo" onclick="cambiarEstado('${p.id}','listo')">✓ Listo</button>`
+                        : ''
+                    }
+                    ${
+                      p.estado === 'listo'
+                        ? `<button class="btn-accion btn-listo" disabled>✓ Listo</button>`
+                        : ''
+                    }
+                    ${
+                      p.estado !== 'listo'
+                        ? `<button class="btn-accion btn-cancelar" onclick="cancelarPedido('${p.id}')" title="Cancelar pedido">✕</button>`
+                        : ''
+                    }
+                  </div>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    // Exponer para los handlers en HTML
+    window.cambiarEstado = cambiarEstado;
+    window.cancelarPedido = cancelarPedido;
+
+    sincronizar();
+    setInterval(sincronizar, POLL_MS);
+  </script>
+</body>
+</html>

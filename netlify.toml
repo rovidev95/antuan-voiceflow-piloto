@@ -1,0 +1,29 @@
+# Configuración de despliegue automático en Netlify
+# El sitio sirve directamente los HTML del repo. Cada push a main publica.
+# El proxy de Voiceflow vive en Railway; aquí no se construye nada.
+
+[build]
+  publish = "."
+  command = ""
+
+# Excluimos del despliegue todo lo que no sea HTML/recursos del frontend.
+[build.processing]
+  skip_processing = false
+
+[build.processing.html]
+  pretty_urls = true
+
+# Headers de seguridad básicos para producción.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "microphone=(self)"
+
+# Atajo amigable: /cocina → /cocina.html
+[[redirects]]
+  from = "/cocina"
+  to = "/cocina.html"
+  status = 200

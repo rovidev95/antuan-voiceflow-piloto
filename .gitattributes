@@ -1,0 +1,10 @@
+# Normalizamos line endings a LF para que el deploy en Railway (Linux) sea estable.
+* text=auto eol=lf
+
+# Archivos binarios o que no deben tocarse
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

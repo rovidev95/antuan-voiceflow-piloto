@@ -1,0 +1,32 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno locales (sólo se configuran en Railway)
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Datos persistentes locales (en Railway viven en un Volume)
+voiceflow-proxy/data/
+**/pedidos.json
+**/pedidos.tmp.json
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PDFs/HTML de propuestas (documentación interna, no parte del producto)
+Propuesta*.pdf
+RoviDev-Propuesta-*.html
+
+# Archivos sueltos guardados por el navegador
+* _files/

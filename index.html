@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Antuan — Tu asistente de mesa</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap');
+
+    :root {
+      --brand: #FF4D00;
+      --brand-soft: rgba(255,77,0,0.12);
+      --bg: #FAF8F5;
+      --surface: #FFFFFF;
+      --text: #1A1A1A;
+      --text-muted: #888;
+      --border: #EBEBEB;
+      --chat-h: 290px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      padding-bottom: calc(var(--chat-h) + 100px);
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #FF4D00, #FF8C00);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFF;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(255,77,0,0.3);
+    }
+    .header-text h1 { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--text); }
+    .header-text p { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .mesa-pill {
+      margin-left: auto;
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    /* CARRITO FLOTANTE */
+    .carrito-bar {
+      position: sticky;
+      top: 77px;
+      z-index: 9;
+      margin: 0 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--brand);
+      border-radius: 14px;
+      padding: 10px 16px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 16px rgba(255,77,0,0.12);
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .carrito-bar.visible { display: flex; }
+    .carrito-info { display: flex; align-items: center; gap: 10px; }
+    .carrito-badge {
+      background: var(--brand);
+      color: #FFF;
+      font-size: 12px;
+      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .carrito-texto { font-size: 13px; font-weight: 500; color: var(--text); }
+    .carrito-total { font-size: 14px; font-weight: 700; color: var(--brand); }
+
+    /* MODAL CARRITO */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: flex-end;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-height: 70vh;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal-handle { width: 36px; height: 4px; background: #DDD; border-radius: 2px; margin: 0 auto 16px; }
+    .modal h2 { font-family: 'Playfair Display', serif; font-size: 18px; margin-bottom: 16px; }
+    .modal-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .modal-item:last-of-type { border-bottom: none; }
+    .modal-item-nombre { flex: 1; color: var(--text); }
+    .modal-item-precio { color: var(--brand); font-weight: 600; margin-left: 12px; }
+    .modal-total {
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 0 0;
+      font-size: 16px;
+      font-weight: 700;
+      border-top: 2px solid var(--border);
+      margin-top: 8px;
+    }
+    .btn-enviar-cocina {
+      width: 100%;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(255,77,0,0.3);
+    }
+    .btn-enviar-cocina:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .modal-close {
+      width: 100%;
+      background: #F5F3F0;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    /* PANEL DE ESTADO DEL PEDIDO (cocina ↔ cliente) */
+    .estado-pedido-panel {
+      margin: 16px 16px 0;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .estado-pedido-panel.visible { display: block; }
+    .estado-pedido-titulo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+      letter-spacing: 0.3px;
+    }
+    .estado-pedido-titulo small {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+    .estado-progreso {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .estado-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      position: relative;
+    }
+    .estado-step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #F0EDE8;
+      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      transition: all 0.3s;
+      border: 2px solid #F0EDE8;
+    }
+    .estado-step-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-align: center;
+      letter-spacing: 0.3px;
+    }
+    .estado-step.activo .estado-step-circle {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #FFF;
+      box-shadow: 0 2px 8px rgba(255,77,0,0.3);
+      animation: pulse-step 1.5s infinite;
+    }
+    .estado-step.activo .estado-step-label {
+      color: var(--brand);
+      font-weight: 700;
+    }
+    .estado-step.completado .estado-step-circle {
+      background: #00C864;
+      border-color: #00C864;
+      color: #FFF;
+    }
+    .estado-step.completado .estado-step-label {
+      color: #00C864;
+      font-weight: 600;
+    }
+    @keyframes pulse-step {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .estado-connector {
+      flex: 0 0 14px;
+      height: 2px;
+      background: #F0EDE8;
+      border-radius: 1px;
+      margin-top: -22px;
+      transition: background 0.3s;
+    }
+    .estado-connector.completado { background: #00C864; }
+    .estado-pedido-lista {
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .estado-pedido-fila {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      gap: 8px;
+    }
+    .estado-pedido-fila-info {
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .estado-pedido-fila-info strong {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .estado-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 10px;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+    .estado-pill.pendiente {
+      background: rgba(255,77,0,0.12);
+      color: var(--brand);
+    }
+    .estado-pill.en_preparacion {
+      background: rgba(245,180,0,0.15);
+      color: #B88500;
+    }
+    .estado-pill.listo {
+      background: rgba(0,200,100,0.15);
+      color: #00A050;
+    }
+
+    /* HINT */
+    .hint {
+      margin: 16px 16px 0;
+      background: var(--brand-soft);
+      border: 1px solid rgba(255,77,0,0.2);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .hint-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .hint-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .hint-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+    .hint-step-icon {
+      width: 42px;
+      height: 42px;
+      background: #FFF;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 2px 8px rgba(255,77,0,0.15);
+    }
+    .hint-step-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #555;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .hint-arrow {
+      font-size: 16px;
+      color: var(--brand);
+      flex-shrink: 0;
+      margin-bottom: 14px;
+    }
+    .hint-step-icon--pulse {
+      animation: hint-bounce 1s infinite;
+    }
+    @keyframes hint-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(5px); }
+    }
+    .hint-dot {
+      width: 8px; height: 8px;
+      background: #00C864;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+      animation: pulse-green 2s infinite;
+    }
+
+    /* SCROLL HINT */
+    .scroll-hint {
+      text-align: center;
+      padding: 10px 16px 4px;
+    }
+    .scroll-hint span {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .scroll-arrow {
+      display: inline-block;
+      animation: bounce-down 1s infinite;
+      font-size: 18px;
+    }
+    @keyframes bounce-down {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(5px); }
+    }
+
+    /* CARTA */
+    .carta { padding: 8px 16px 0; }
+    .seccion-titulo {
+      font-family: 'Playfair Display', serif;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--brand);
+      margin-top: 28px;
+      margin-bottom: 4px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .plato {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 13px 0;
+      border-bottom: 1px solid #F0EDE8;
+      gap: 12px;
+    }
+    .plato-nombre { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
+    .plato-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .plato-precio { font-size: 14px; font-weight: 600; color: var(--brand); white-space: nowrap; flex-shrink: 0; }
+    .nota { font-size: 11px; color: #BBB; text-align: center; padding: 20px 16px; line-height: 1.6; }
+
+    /* BOTÓN PEDIR CUENTA */
+    .cuenta-btn-wrapper {
+      padding: 20px 16px 0;
+    }
+    .cuenta-btn {
+      width: 100%;
+      background: #1A1A1A;
+      color: #FFF;
+      border: none;
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .cuenta-btn:active { transform: scale(0.98); background: #333; }
+    .cuenta-btn-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--brand);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    /* MODAL CUENTA */
+    .cuenta-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300;
+      align-items: flex-end;
+    }
+    .cuenta-modal-overlay.visible { display: flex; }
+    .cuenta-modal {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      padding: 24px 20px 32px;
+    }
+    .cuenta-modal-handle { width: 36px; height: 4px; background: #DDD; border-radius: 2px; margin: 0 auto 20px; }
+    .cuenta-modal h2 { font-family: 'Playfair Display', serif; font-size: 20px; text-align: center; margin-bottom: 6px; }
+    .cuenta-modal p { font-size: 14px; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+    .pago-opciones { display: flex; flex-direction: column; gap: 12px; }
+    .pago-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #F5F3F0;
+      border: 2px solid transparent;
+      border-radius: 14px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      text-align: left;
+    }
+    .pago-btn:active { transform: scale(0.98); }
+    .pago-btn.efectivo:hover, .pago-btn.efectivo:active { border-color: #00C864; background: rgba(0,200,100,0.05); }
+    .pago-btn.tarjeta:hover, .pago-btn.tarjeta:active { border-color: #4B7BF5; background: rgba(75,123,245,0.05); }
+    .pago-icon { font-size: 28px; }
+    .pago-texto-titulo { font-size: 15px; font-weight: 600; color: var(--text); }
+    .pago-texto-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .cuenta-cancelar {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 16px 0 0;
+      text-align: center;
+    }
+
+    /* CHAT PANEL */
+    .chat-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: var(--chat-h);
+      background: var(--surface);
+      border-top: 2px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.10);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      transition: height 0.3s ease;
+    }
+    .chat-panel.collapsed { height: 64px; }
+    .chat-handle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 8px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .handle-bar { width: 36px; height: 4px; background: #DDD; border-radius: 2px; }
+    .chat-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text); }
+    .chat-status {
+      width: 8px; height: 8px;
+      background: #00C864;
+      border-radius: 50%;
+      animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .collapse-btn { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; padding: 4px; }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .chat-panel.collapsed .chat-messages,
+    .chat-panel.collapsed .chat-input-area { display: none; }
+
+    .msg {
+      max-width: 82%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .msg.antuan { background: #F2F0ED; color: var(--text); border-bottom-left-radius: 4px; align-self: flex-start; }
+    .msg.user { background: var(--brand); color: #FFF; border-bottom-right-radius: 4px; align-self: flex-end; }
+    .msg.typing { background: #F2F0ED; align-self: flex-start; padding: 14px 18px; }
+    .typing-dots { display: flex; gap: 5px; }
+    .typing-dots span {
+      width: 7px; height: 7px;
+      background: #AAA;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    /* INPUT AREA */
+    .chat-input-area {
+      padding: 8px 12px 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input {
+      flex: 1;
+      min-width: 0;
+      background: #F5F3F0;
+      border: none;
+      border-radius: 24px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      outline: none;
+    }
+    .chat-input::placeholder { color: #BBB; }
+
+    /* Micrófono: tap para activar / desactivar */
+    .mic-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--brand);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(255,77,0,0.35);
+      transition: all 0.15s;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .mic-btn.recording {
+      background: #E03000;
+      transform: scale(1.15);
+      box-shadow: 0 0 0 12px rgba(255,77,0,0.12), 0 4px 12px rgba(255,77,0,0.35);
+    }
+    .mic-icon { font-size: 18px; pointer-events: none; }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--brand);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(255,77,0,0.35);
+      transition: all 0.2s;
+    }
+    .send-btn:active { transform: scale(0.94); }
+    .send-icon { font-size: 16px; color: white; }
+
+    .cuenta-chat-btn {
+      height: 44px;
+      border-radius: 22px;
+      background: #1A1A1A;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 12px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      transition: all 0.2s;
+      color: #FFF;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .cuenta-chat-btn:active { transform: scale(0.94); background: #333; }
+
+    /* GRAB TO RECORD HINT */
+    .mic-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 0 16px 6px;
+      display: none;
+    }
+    .mic-hint.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">A</div>
+    <div class="header-text">
+      <h1>Antuan</h1>
+      <p>Tu asistente de pedidos</p>
+    </div>
+    <div class="mesa-pill" id="mesaPill">Mesa 7</div>
+  </div>
+
+  <!-- CARRITO FLOTANTE -->
+  <div class="carrito-bar" id="carritoBar" onclick="abrirCarrito()">
+    <div class="carrito-info">
+      <div class="carrito-badge" id="carritoBadge">0</div>
+      <div class="carrito-texto" id="carritoTexto">Ver mi pedido</div>
+    </div>
+    <div class="carrito-total" id="carritoTotal">0,00€</div>
+  </div>
+
+  <!-- ESTADO DEL PEDIDO (visible cuando ya hay algo en cocina) -->
+  <div class="estado-pedido-panel" id="estadoPedidoPanel">
+    <div class="estado-pedido-titulo">
+      <span>Estado de tu pedido</span>
+      <small id="estadoPedidoActualizado">Actualizado ahora</small>
+    </div>
+    <div class="estado-progreso" id="estadoProgreso">
+      <div class="estado-step" data-step="pendiente">
+        <div class="estado-step-circle">📝</div>
+        <div class="estado-step-label">Recibido</div>
+      </div>
+      <div class="estado-connector" data-connector="pendiente-preparacion"></div>
+      <div class="estado-step" data-step="en_preparacion">
+        <div class="estado-step-circle">🍳</div>
+        <div class="estado-step-label">Preparando</div>
+      </div>
+      <div class="estado-connector" data-connector="preparacion-listo"></div>
+      <div class="estado-step" data-step="listo">
+        <div class="estado-step-circle">✓</div>
+        <div class="estado-step-label">Listo</div>
+      </div>
+    </div>
+    <div class="estado-pedido-lista" id="estadoPedidoLista"></div>
+  </div>
+
+  <!-- HINT -->
+  <div class="hint">
+    <div class="hint-title">¿Cómo pedir?</div>
+    <div class="hint-steps">
+      <div class="hint-step">
+        <div class="hint-step-icon hint-step-icon--pulse">👇</div>
+        <div class="hint-step-label"><span class="hint-dot"></span><strong>Antuan · Pide aquí</strong></div>
+      </div>
+      <div class="hint-arrow">›</div>
+      <div class="hint-step">
+        <div class="hint-step-icon">🎙️</div>
+        <div class="hint-step-label">Pulsa el<br>micro</div>
+      </div>
+      <div class="hint-arrow">›</div>
+      <div class="hint-step">
+        <div class="hint-step-icon">🗣️</div>
+        <div class="hint-step-label">Habla tu<br>pedido</div>
+      </div>
+      <div class="hint-arrow">›</div>
+      <div class="hint-step">
+        <div class="hint-step-icon">↑</div>
+        <div class="hint-step-label">Envía y<br>¡listo!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARTA -->
+  <div class="scroll-hint">
+    <span><span class="scroll-arrow">👇</span> Desliza para ver la carta mientras pides</span>
+  </div>
+  <div class="carta">
+    <div class="seccion-titulo">Aperitivos</div>
+    <div class="plato"><div><div class="plato-nombre">Gilda de boquerón o anchoa</div></div><div class="plato-precio">3,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">1/4 de Piparras fritas</div><div class="plato-desc">Cuidado que pueden picar</div></div><div class="plato-precio">7,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Torreznos de Soria</div><div class="plato-desc">Sobre patata revolcona</div></div><div class="plato-precio">8,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Ensaladilla rusa</div><div class="plato-desc">De toda la vida</div></div><div class="plato-precio">Media 8,50€ / Entera 12,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Croquetas de jamón ibérico</div><div class="plato-desc">6 unidades</div></div><div class="plato-precio">Media 6,50€ / Entera 11,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Nachos con queso fundido</div><div class="plato-desc">Con guacamole y pico de gallo</div></div><div class="plato-precio">13,00€</div></div>
+
+    <div class="seccion-titulo">Platos al centro</div>
+    <div class="plato"><div><div class="plato-nombre">Patatas muy bravas</div><div class="plato-desc">Con un toque de guindilla</div></div><div class="plato-precio">10,80€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Langostinos tornados</div><div class="plato-desc">Con mayonesa japonesa, 8 ud.</div></div><div class="plato-precio">16,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Huevos estrellados</div><div class="plato-desc">Con jamón y aceite de ajitos fritos</div></div><div class="plato-precio">13,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Dados de patata y solomillo ibérico</div><div class="plato-desc">Con queso fundido y salsa andaluza</div></div><div class="plato-precio">14,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Gyozas fritas de rabo de toro</div><div class="plato-desc">Con salsa oriental y Wakame, 6 ud.</div></div><div class="plato-precio">14,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Crujientes de pollo</div><div class="plato-desc">Con salsa de mostaza y miel y salsa de yogur</div></div><div class="plato-precio">15,00€</div></div>
+
+    <div class="seccion-titulo">Top Healthy</div>
+    <div class="plato"><div><div class="plato-nombre">Alcachofas confitadas</div><div class="plato-desc">Con salsa de Idiazábal y jamón crujiente, 3 ud.</div></div><div class="plato-precio">12,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Habitas salteadas al PX</div><div class="plato-desc">Con presa ibérica</div></div><div class="plato-precio">12,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Burrata con mermelada</div><div class="plato-desc">De tomate cherry y berros</div></div><div class="plato-precio">13,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Ensalada kumato y ventresca</div><div class="plato-desc">Con aceite de arberquina y sal Maldon</div></div><div class="plato-precio">12,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Ensalada de queso de cabra crujiente</div><div class="plato-desc">Con vinagreta de miel y granada</div></div><div class="plato-precio">13,50€</div></div>
+
+    <div class="seccion-titulo">Apto para Foodies</div>
+    <div class="plato"><div><div class="plato-nombre">Ravioli de gamba roja</div><div class="plato-desc">Con leche de coco y curry</div></div><div class="plato-precio">18,10€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Arroz cremoso de boletus</div><div class="plato-desc">Con aceite de trufa y foie</div></div><div class="plato-precio">15,20€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Bao de cochinita pibil</div><div class="plato-desc">Con guacamole y col</div></div><div class="plato-precio">16,80€</div></div>
+
+    <div class="seccion-titulo">De la Mar</div>
+    <div class="plato"><div><div class="plato-nombre">Dados de salmón marinado al estilo japo</div><div class="plato-desc">Con naranja y miel</div></div><div class="plato-precio">18,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Brocheta de vieira y langostinos</div><div class="plato-desc">Con aceite de ajo, 2 ud.</div></div><div class="plato-precio">16,40€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Pata de pulpo a la parrilla</div><div class="plato-desc">Con puré de boniato</div></div><div class="plato-precio">19,50€</div></div>
+
+    <div class="seccion-titulo">Meat Lovers</div>
+    <div class="plato"><div><div class="plato-nombre">Tataki de presa ibérica</div><div class="plato-desc">Con crema de pistacho</div></div><div class="plato-precio">19,80€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Entrecot de vaca vieja a la parrilla</div><div class="plato-desc">Con patatas y pimientos de padrón</div></div><div class="plato-precio">24,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">1 kg. de chuletón</div><div class="plato-desc">A la parrilla con patatas, mínimo 2 personas</div></div><div class="plato-precio">55,00€</div></div>
+
+    <div class="seccion-titulo">Postres de Primera</div>
+    <div class="plato"><div><div class="plato-nombre">Crunch de Nutella</div><div class="plato-desc">Con helado de Banana Split</div></div><div class="plato-precio">7,20€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Tarta de queso</div><div class="plato-desc">Con un toque de mermelada</div></div><div class="plato-precio">6,80€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Torrija de brioche</div><div class="plato-desc">Con helado de Mascarpone y espuma de canela</div></div><div class="plato-precio">7,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Piña glaseada</div><div class="plato-desc">Con un toque de menta y yogur griego</div></div><div class="plato-precio">6,80€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Helado artesano de vainilla de Madagascar</div><div class="plato-desc">Con toppings, mínimo 2 personas</div></div><div class="plato-precio">9,00€/pax</div></div>
+
+    <div class="seccion-titulo">Cocktails</div>
+    <div class="plato"><div><div class="plato-nombre">Moscow Mule, Bloody Mary, Caipirinha, Daiquiri, Margarita, Mojito, Negroni, Piña Colada, Pisco Sour, Paloma Rosa</div></div><div class="plato-precio">12,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Whisky Sour · Espresso Martini</div></div><div class="plato-precio">14,00€</div></div>
+
+    <div class="seccion-titulo">Mocktails</div>
+    <div class="plato"><div><div class="plato-nombre">San Francisco · Virgin Mojito · Pink Tonic</div></div><div class="plato-precio">11,00€</div></div>
+
+    <div class="seccion-titulo">Aperitivos &amp; Vermuts</div>
+    <div class="plato"><div><div class="plato-nombre">Vermouth Blanco o Rojo</div></div><div class="plato-precio">3,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Croft Twist</div></div><div class="plato-precio">5,00€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Aperol Spritz</div></div><div class="plato-precio">6,50€</div></div>
+
+    <div class="seccion-titulo">Cerveza</div>
+    <div class="plato"><div><div class="plato-nombre">18/70 La Rubia</div></div><div class="plato-precio">3,80€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Paulaner</div></div><div class="plato-precio">Media 3,50€ / Pinta 4,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">El Aguila Dorada</div></div><div class="plato-precio">Botellín 3,20€ / 3,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">El Aguila Sin Filtrar · Sin Gluten 00</div></div><div class="plato-precio">3,50€</div></div>
+    <div class="plato"><div><div class="plato-nombre">Heineken 1/3 · Amstel Tostada 00 · Cruzcampo sin gluten</div></div><div class="plato-precio">3,50€</div></div>
+
+    <p class="nota">El precio en terraza se incrementará un 10%<br>Si tienes alguna alergia, indícasela a Antuan al pedir.</p>
+
+    <!-- BOTÓN PEDIR CUENTA -->
+    <div class="cuenta-btn-wrapper">
+      <button class="cuenta-btn" onclick="pedirCuentaChat()">
+        <span>Pedir la cuenta</span>
+        <div class="cuenta-btn-icon">↑</div>
+      </button>
+    </div>
+    <p class="nota" style="padding-top:8px;">El camarero vendrá enseguida</p>
+  </div>
+
+  <!-- MODAL CARRITO -->
+  <div class="modal-overlay" id="carritoOverlay" onclick="cerrarCarrito(event)">
+    <div class="modal" id="carritoModal">
+      <div class="modal-handle"></div>
+      <h2>Mi pedido</h2>
+      <div id="carritoItems"></div>
+      <div class="modal-total">
+        <span>Total</span>
+        <span id="carritoTotalModal">0,00€</span>
+      </div>
+      <button class="btn-enviar-cocina" id="btnEnviarCocina" type="button" onclick="enviarPedidoACocina(true)">
+        Enviar a cocina
+      </button>
+      <button class="modal-close" onclick="cerrarCarrito()">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- MODAL PEDIR CUENTA -->
+  <div class="cuenta-modal-overlay" id="cuentaOverlay" onclick="cerrarCuenta(event)">
+    <div class="cuenta-modal">
+      <div class="cuenta-modal-handle"></div>
+      <h2>¿Cómo quieres pagar?</h2>
+      <p>El camarero vendrá a cobrar enseguida</p>
+      <div class="pago-opciones">
+        <button class="pago-btn efectivo" onclick="pedirCuenta(&#39;efectivo&#39;)">
+          <div class="pago-icon">💵</div>
+          <div>
+            <div class="pago-texto-titulo">En efectivo</div>
+            <div class="pago-texto-sub">El camarero traerá el cambio</div>
+          </div>
+        </button>
+        <button class="pago-btn tarjeta" onclick="pedirCuenta(&#39;tarjeta&#39;)">
+          <div class="pago-icon">💳</div>
+          <div>
+            <div class="pago-texto-titulo">Con tarjeta</div>
+            <div class="pago-texto-sub">Visa, Mastercard, contactless</div>
+          </div>
+        </button>
+      </div>
+      <button class="cuenta-cancelar" onclick="cerrarCuenta()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- CHAT PANEL -->
+  <div class="chat-panel collapsed" id="chatPanel">
+    <div class="chat-handle" id="chatHandle">
+      <div class="handle-bar"></div>
+      <div class="chat-label">
+        <div class="chat-status"></div>
+        Antuan · Pide aquí
+      </div>
+      <button class="collapse-btn" id="collapseBtn">▴</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"><div class="msg antuan">¡Hola! Bienvenido al restaurante. ¿Qué te apetece pedir hoy?</div></div>
+    <div class="mic-hint" id="micHint"></div>
+    <div class="chat-input-area">
+      <button class="cuenta-chat-btn" id="cuentaChatBtn" onclick="pedirCuentaChat()" title="Pedir la cuenta">
+        🧾 CUENTA
+      </button>
+      <input class="chat-input" id="chatInput" type="text" placeholder="Escribe tu pedido..." autocomplete="off">
+      <button class="mic-btn" id="micBtn" aria-label="Activar o desactivar micrófono" aria-pressed="false">
+        <span class="mic-icon">🎙️</span>
+      </button>
+      <button class="send-btn" id="sendBtn" style="background: var(--brand); box-shadow: rgba(255, 77, 0, 0.35) 0px 4px 12px;">
+        <span class="send-icon">↑</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Debe ser la URL pública del servicio en Railway (sin barra final).
+    // Ejemplo correcto: https://xxxx.up.railway.app
+    // Incorrecto: sin .up.railway.app o sin /api/state/user/.../interact
+    const PROXY_URL = 'https://affectionate-clarity-production-f27b.up.railway.app';
+
+    const MESA_NUMERO = (() => {
+      const q = new URLSearchParams(window.location.search).get('mesa');
+      return (q && String(q).trim()) || '7';
+    })();
+    document.getElementById('mesaPill').textContent = 'Mesa ' + MESA_NUMERO;
+
+    let ultimoPedidoEnviadoKey = null;
+    let pedidoEnviadoACocina = false;
+    const lineasEnviadasCocina = new Set();
+
+    function esMensajeDeCuenta(texto) {
+      return /cuenta|efectivo|tarjeta|pagar|factura/i.test(texto);
+    }
+
+    /* =====================================================
+     * MENÚ + PARSER DE PEDIDOS
+     * Construye el catálogo desde el DOM y permite detectar
+     * { cantidad, producto canónico, precio } en lo que dice
+     * el cliente. Así la cocina recibe items LIMPIOS y no
+     * frases como "Quiero unas croquetas y dos cañas".
+     * ===================================================== */
+
+    const PALABRAS_NUMERO = {
+      'un': 1, 'una': 1, 'uno': 1,
+      'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+      'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
+      'once': 11, 'doce': 12
+    };
+
+    // Stop-words para no “matchear” por accidente palabras irrelevantes
+    const STOPWORDS_MENU = new Set([
+      'de','del','la','el','los','las','con','y','o','u','a','al','un','una',
+      'en','para','por','sin','que','con','muy','toque','sobre','toda','vida',
+      'naranja','miel','sal','ud','unidades','pax','minimo','mínimo','personas',
+      'aceite','arberquina','maldon','salsa','crema','helado','espuma','canela',
+      'mascarpone','idiazabal','idiazábal','jamon','jamón','crujiente','queso','wakame'
+    ]);
+
+    function normalizar(txt) {
+      return String(txt || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[¿¡!?,;:."'()]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function tokensRelevantes(nombre) {
+      return normalizar(nombre)
+        .split(' ')
+        .filter((w) => w.length > 2 && !STOPWORDS_MENU.has(w));
+    }
+
+    function precioBaseDesdeTexto(precioTxt) {
+      const m = String(precioTxt || '').match(/(\d+[,.]?\d*)\s*€/);
+      if (!m) return 0;
+      return parseFloat(m[1].replace(',', '.')) || 0;
+    }
+
+    // Alias manuales: lo que dice el cliente → nombre real del menú.
+    // Se aplican antes del matcheo por tokens.
+    const ALIAS_PRODUCTOS = [
+      { alias: ['caña','canya','canas','cañas','tirador','tirada'], nombre: '18/70 La Rubia' },
+      { alias: ['cerveza','cervezas','birra','birras'], nombre: '18/70 La Rubia' },
+      { alias: ['agua','agua mineral','botella de agua'], nombre: 'Agua mineral' },
+      { alias: ['vino tinto','copa de vino','tinto'], nombre: 'Copa de vino tinto' },
+      { alias: ['vino blanco','blanco'], nombre: 'Copa de vino blanco' },
+      { alias: ['croquetas','croqueta'], nombre: 'Croquetas de jamón ibérico' },
+      { alias: ['bravas','patatas bravas'], nombre: 'Patatas muy bravas' },
+      { alias: ['ensaladilla','rusa'], nombre: 'Ensaladilla rusa' },
+      { alias: ['piparras'], nombre: '1/4 de Piparras fritas' },
+      { alias: ['torreznos','torrezno'], nombre: 'Torreznos de Soria' },
+      { alias: ['gilda','gildas'], nombre: 'Gilda de boquerón o anchoa' },
+      { alias: ['nachos'], nombre: 'Nachos con queso fundido' },
+      { alias: ['langostinos','langostino'], nombre: 'Langostinos tornados' },
+      { alias: ['huevos rotos','huevos','estrellados'], nombre: 'Huevos estrellados' },
+      { alias: ['solomillo','dados de solomillo'], nombre: 'Dados de patata y solomillo ibérico' },
+      { alias: ['gyozas','gyoza','rabo de toro'], nombre: 'Gyozas fritas de rabo de toro' },
+      { alias: ['crujientes de pollo','pollo crujiente'], nombre: 'Crujientes de pollo' },
+      { alias: ['alcachofas','alcachofa'], nombre: 'Alcachofas confitadas' },
+      { alias: ['habitas','habas'], nombre: 'Habitas salteadas al PX' },
+      { alias: ['burrata'], nombre: 'Burrata con mermelada' },
+      { alias: ['kumato','ventresca','ensalada kumato'], nombre: 'Ensalada kumato y ventresca' },
+      { alias: ['queso de cabra','cabra','ensalada de cabra'], nombre: 'Ensalada de queso de cabra crujiente' },
+      { alias: ['ravioli','ravioli de gamba'], nombre: 'Ravioli de gamba roja' },
+      { alias: ['arroz','arroz de boletus','boletus'], nombre: 'Arroz cremoso de boletus' },
+      { alias: ['bao','cochinita','cochinita pibil'], nombre: 'Bao de cochinita pibil' },
+      { alias: ['salmon','salmón','sashimi de salmon','salmon marinado'], nombre: 'Dados de salmón marinado al estilo japo' },
+      { alias: ['vieira','brocheta de vieira'], nombre: 'Brocheta de vieira y langostinos' },
+      { alias: ['pulpo','pata de pulpo'], nombre: 'Pata de pulpo a la parrilla' },
+      { alias: ['tataki','presa','presa iberica','presa ibérica'], nombre: 'Tataki de presa ibérica' },
+      { alias: ['entrecot','entrecotte'], nombre: 'Entrecot de vaca vieja a la parrilla' },
+      { alias: ['chuleton','chuletón'], nombre: '1 kg. de chuletón' },
+      { alias: ['nutella','crunch'], nombre: 'Crunch de Nutella' },
+      { alias: ['tarta de queso','cheesecake'], nombre: 'Tarta de queso' },
+      { alias: ['torrija','torrijas'], nombre: 'Torrija de brioche' },
+      { alias: ['piña','piña glaseada'], nombre: 'Piña glaseada' },
+      { alias: ['helado de vainilla','helado'], nombre: 'Helado artesano de vainilla de Madagascar' },
+      { alias: ['mojito'], nombre: 'Mojito' },
+      { alias: ['margarita'], nombre: 'Margarita' },
+      { alias: ['caipirinha','caipiriña'], nombre: 'Caipirinha' },
+      { alias: ['daiquiri'], nombre: 'Daiquiri' },
+      { alias: ['negroni'], nombre: 'Negroni' },
+      { alias: ['piña colada','colada'], nombre: 'Piña Colada' },
+      { alias: ['pisco sour','pisco'], nombre: 'Pisco Sour' },
+      { alias: ['moscow mule','moscow'], nombre: 'Moscow Mule' },
+      { alias: ['bloody mary','bloody'], nombre: 'Bloody Mary' },
+      { alias: ['whisky sour'], nombre: 'Whisky Sour' },
+      { alias: ['espresso martini'], nombre: 'Espresso Martini' },
+      { alias: ['virgin mojito'], nombre: 'Virgin Mojito' },
+      { alias: ['pink tonic'], nombre: 'Pink Tonic' },
+      { alias: ['san francisco'], nombre: 'San Francisco' },
+      { alias: ['vermut','vermouth','vermouth blanco'], nombre: 'Vermouth Blanco o Rojo' },
+      { alias: ['aperol','aperol spritz','spritz'], nombre: 'Aperol Spritz' },
+      { alias: ['paloma','paloma rosa'], nombre: 'Paloma Rosa' },
+      { alias: ['paulaner','paulaner pinta','paulaner media'], nombre: 'Paulaner' },
+      { alias: ['heineken'], nombre: 'Heineken 1/3 · Amstel Tostada 00 · Cruzcampo sin gluten' },
+      { alias: ['amstel','tostada'], nombre: 'Heineken 1/3 · Amstel Tostada 00 · Cruzcampo sin gluten' },
+      { alias: ['cruzcampo','sin gluten'], nombre: 'El Aguila Sin Filtrar · Sin Gluten 00' },
+      { alias: ['aguila','el aguila','águila'], nombre: 'El Aguila Dorada' }
+    ];
+
+    // Productos extra que no salen literal en la carta pero el cliente puede pedir.
+    const PRODUCTOS_EXTRA = [
+      { nombre: 'Agua mineral', precio: 2.50 },
+      { nombre: 'Copa de vino tinto', precio: 4.00 },
+      { nombre: 'Copa de vino blanco', precio: 4.00 }
+    ];
+
+    let MENU_PRODUCTOS = [];   // [{ nombre, precio, tokens, precioTxt }]
+    let MENU_INDICE = new Map(); // nombre normalizado → producto
+
+    function construirMenu() {
+      MENU_PRODUCTOS = [];
+      MENU_INDICE = new Map();
+
+      document.querySelectorAll('.plato').forEach((el) => {
+        const nombreEl = el.querySelector('.plato-nombre');
+        const precioEl = el.querySelector('.plato-precio');
+        if (!nombreEl) return;
+        const nombre = nombreEl.textContent.trim();
+        const precioTxt = precioEl ? precioEl.textContent.trim() : '';
+        const precio = precioBaseDesdeTexto(precioTxt);
+        const tokens = tokensRelevantes(nombre);
+        const prod = { nombre, precio, precioTxt, tokens };
+        MENU_PRODUCTOS.push(prod);
+        MENU_INDICE.set(normalizar(nombre), prod);
+      });
+
+      PRODUCTOS_EXTRA.forEach((p) => {
+        const prod = {
+          nombre: p.nombre,
+          precio: p.precio,
+          precioTxt: p.precio.toFixed(2).replace('.', ',') + '€',
+          tokens: tokensRelevantes(p.nombre)
+        };
+        MENU_PRODUCTOS.push(prod);
+        MENU_INDICE.set(normalizar(prod.nombre), prod);
+      });
+    }
+
+    function buscarProductoCanonico(nombre) {
+      const key = normalizar(nombre);
+      if (MENU_INDICE.has(key)) return MENU_INDICE.get(key);
+      // Buscar primero por alias
+      for (const grupo of ALIAS_PRODUCTOS) {
+        if (grupo.alias.some((a) => key.includes(normalizar(a)))) {
+          const prod = MENU_INDICE.get(normalizar(grupo.nombre));
+          if (prod) return prod;
+        }
+      }
+      // Buscar por solapamiento de tokens
+      const tokensEntrada = key.split(' ').filter((w) => w.length > 2);
+      let mejor = null;
+      let mejorScore = 0;
+      MENU_PRODUCTOS.forEach((prod) => {
+        const overlap = prod.tokens.filter((t) => tokensEntrada.includes(t)).length;
+        if (overlap > mejorScore && overlap >= Math.min(2, prod.tokens.length)) {
+          mejor = prod;
+          mejorScore = overlap;
+        }
+      });
+      return mejor;
+    }
+
+    /**
+     * Extrae items reales del menú a partir de una frase libre del cliente.
+     * Devuelve [{ cantidad, nombre, precio, nota }] o [] si no detecta nada.
+     */
+    function parsearPedido(texto) {
+      const normal = normalizar(texto);
+      if (!normal) return [];
+      if (esMensajeDeCuenta(texto)) return [];
+
+      const detectados = new Map(); // nombre → { cantidad, precio }
+
+      // 1) Detectar alias primero (puede haber varios por frase)
+      ALIAS_PRODUCTOS.forEach((grupo) => {
+        for (const alias of grupo.alias) {
+          const aliasNorm = normalizar(alias);
+          const idx = normal.indexOf(aliasNorm);
+          if (idx === -1) continue;
+          const prod = MENU_INDICE.get(normalizar(grupo.nombre));
+          if (!prod) continue;
+          const cantidad = extraerCantidadCerca(normal, idx);
+          acumularProducto(detectados, prod, cantidad);
+        }
+      });
+
+      // 2) Detectar productos por tokens del propio menú
+      MENU_PRODUCTOS.forEach((prod) => {
+        if (prod.tokens.length === 0) return;
+        // Si todos los tokens significativos del nombre aparecen, lo damos por bueno
+        const todos = prod.tokens.every((t) => normal.includes(t));
+        if (!todos) return;
+        if (detectados.has(prod.nombre)) return; // ya añadido por alias
+        const idx = normal.indexOf(prod.tokens[0]);
+        const cantidad = extraerCantidadCerca(normal, idx);
+        acumularProducto(detectados, prod, cantidad);
+      });
+
+      return [...detectados.entries()].map(([nombre, info]) => ({
+        cantidad: info.cantidad,
+        nombre,
+        precio: info.precio,
+        nota: ''
+      }));
+    }
+
+    function acumularProducto(map, prod, cantidad) {
+      if (map.has(prod.nombre)) {
+        map.get(prod.nombre).cantidad += cantidad;
+      } else {
+        map.set(prod.nombre, { cantidad, precio: prod.precio });
+      }
+    }
+
+    function extraerCantidadCerca(textoNormal, idxProducto) {
+      // Mira las 4 palabras anteriores al producto en busca de un número o palabra-número
+      const antes = textoNormal.slice(0, idxProducto).trim().split(/\s+/);
+      const ventana = antes.slice(-4);
+      for (let i = ventana.length - 1; i >= 0; i--) {
+        const w = ventana[i];
+        const num = parseInt(w, 10);
+        if (!isNaN(num) && num > 0 && num < 50) return num;
+        if (PALABRAS_NUMERO[w]) return PALABRAS_NUMERO[w];
+      }
+      return 1;
+    }
+
+    function pareceMensajeDePedido(texto) {
+      return parsearPedido(texto).length > 0;
+    }
+
+    // Inicializar el menú una vez el DOM esté listo (los .plato ya están en el HTML)
+    construirMenu();
+
+    function interactUrl(sessionId) {
+      return `${PROXY_URL}/api/state/user/${ encodeURIComponent(sessionId) }/interact`;
+    }
+
+    function applyVoiceflowTrace(data) {
+      if (!Array.isArray(data)) return;
+      const seen = new Set();
+      data.forEach(item => {
+        if (item.type !== 'text' && item.type !== 'speak') return;
+        const text = item.payload?.message;
+        if (!text || seen.has(text)) return;
+        seen.add(text);
+        addMessage(text, 'antuan');
+      });
+    }
+
+    let sessionLaunched = false;
+    let sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+    let isCollapsed = true;
+    let recognition = null;
+    let isRecording = false;
+
+    // Carrito
+    let carritoItems = [];
+
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const micBtn = document.getElementById('micBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatPanel = document.getElementById('chatPanel');
+    const collapseBtn = document.getElementById('collapseBtn');
+    const chatHandle = document.getElementById('chatHandle');
+    const micHint = document.getElementById('micHint');
+
+    // Collapse
+    collapseBtn.addEventListener('click', toggleCollapse);
+    chatHandle.addEventListener('click', (e) => { if (e.target === collapseBtn) return; if (isCollapsed) toggleCollapse(); });
+    function toggleCollapse() {
+      isCollapsed = !isCollapsed;
+      chatPanel.classList.toggle('collapsed', isCollapsed);
+      collapseBtn.textContent = isCollapsed ? '▴' : '▾';
+    }
+    // Arrancar colapsado
+    chatPanel.classList.add('collapsed');
+    collapseBtn.textContent = '▴';
+
+    // Mensajes
+    function addMessage(text, sender) {
+      const msg = document.createElement('div');
+      msg.className = `msg ${sender}`;
+      msg.textContent = text;
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      if (sender === 'user') {
+        registrarPedidoDesdeMensaje(text);
+      }
+      if (sender === 'antuan') {
+        extraerItemsDelMensaje(text);
+      }
+      return msg;
+    }
+
+    function addTyping() {
+      const msg = document.createElement('div');
+      msg.className = 'msg typing';
+      msg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return msg;
+    }
+
+    // Cuando responde Antuan, intentamos detectar también items confirmados
+    function extraerItemsDelMensaje(texto) {
+      const items = parsearPedido(texto);
+      items.forEach((it) => acumularEnCarrito(it));
+      actualizarCarritoUI();
+    }
+
+    /**
+     * Acumula un item en el carrito local, sumando cantidad si ya estaba.
+     */
+    function acumularEnCarrito(item) {
+      if (!item || !item.nombre) return;
+      const existente = carritoItems.find((c) => c.nombre === item.nombre);
+      if (existente) {
+        existente.cantidad = (existente.cantidad || 1) + (item.cantidad || 1);
+      } else {
+        carritoItems.push({
+          nombre: item.nombre,
+          cantidad: item.cantidad || 1,
+          precio: typeof item.precio === 'number' ? item.precio : 0,
+          nota: item.nota || ''
+        });
+      }
+    }
+
+    /**
+     * Cuando el cliente escribe / habla algo, intentamos extraer productos
+     * reales del menú y enviarlos a cocina. Si no parseamos nada (p.ej.
+     * "hola", "gracias", "qué tienes…"), NO se envía nada.
+     */
+    async function registrarPedidoDesdeMensaje(texto) {
+      const items = parsearPedido(texto);
+      if (items.length === 0) return; // mensaje conversacional, no es un pedido
+
+      // Filtrar duplicados (mismo producto + cantidad ya enviado en esta sesión)
+      const nuevos = items.filter((it) => {
+        const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
+        if (lineasEnviadasCocina.has(key)) return false;
+        lineasEnviadasCocina.add(key);
+        return true;
+      });
+      if (nuevos.length === 0) return;
+
+      // Actualizar carrito local
+      nuevos.forEach((it) => acumularEnCarrito(it));
+      actualizarCarritoUI();
+
+      await enviarItemsACocina(nuevos, false);
+    }
+
+    /**
+     * Envía un lote de items canónicos a la cocina.
+     */
+    async function enviarItemsACocina(items, forzar) {
+      if (!Array.isArray(items) || items.length === 0) {
+        if (forzar) {
+          alert('Aún no hay platos en el pedido. Habla con Antuan o escribe tu pedido primero.');
+        }
+        return false;
+      }
+
+      const payloadItems = items.map((i) => ({
+        cantidad: i.cantidad || 1,
+        nombre: i.nombre,
+        nota: i.nota || ''
+      }));
+
+      try {
+        const response = await fetch(`${PROXY_URL}/api/pedidos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mesa: MESA_NUMERO, items: payloadItems })
+        });
+        if (!response.ok) {
+          const err = await response.text();
+          console.error('Cocina/proxy:', response.status, err);
+          if (forzar) {
+            const msg =
+              response.status === 403
+                ? 'CORS: añade la URL de Netlify en ALLOWED_ORIGINS (Railway).'
+                : 'No se pudo enviar a cocina (error ' + response.status + ').';
+            alert(msg);
+          }
+          return false;
+        }
+        pedidoEnviadoACocina = true;
+        console.info('Pedido enviado a cocina:', payloadItems);
+        return true;
+      } catch (err) {
+        console.error('No se pudo enviar el pedido a cocina:', err);
+        if (forzar) alert('Error de conexión con el servidor.');
+        return false;
+      }
+    }
+
+    /**
+     * Envío manual desde el botón del carrito: revisa todo el carrito
+     * actual y manda lo que aún no se haya mandado.
+     */
+    async function enviarPedidoACocina(forzar) {
+      const pendientes = carritoItems.filter((it) => {
+        const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
+        return !lineasEnviadasCocina.has(key);
+      });
+      if (pendientes.length === 0) {
+        if (forzar) {
+          alert('Tu pedido ya está enviado a cocina. ¡Buen provecho!');
+        }
+        return;
+      }
+
+      const btn = document.getElementById('btnEnviarCocina');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Enviando…';
+      }
+
+      const ok = await enviarItemsACocina(pendientes, !!forzar);
+
+      if (ok) {
+        pendientes.forEach((it) => {
+          const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
+          lineasEnviadasCocina.add(key);
+        });
+        if (btn) btn.textContent = '✓ Enviado a cocina';
+        if (forzar) cerrarCarrito();
+      } else if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Enviar a cocina';
+      }
+    }
+
+    function calcularTotalCarrito() {
+      return carritoItems.reduce(
+        (acc, i) => acc + (Number(i.precio) || 0) * (Number(i.cantidad) || 1),
+        0
+      );
+    }
+
+    function totalUnidadesCarrito() {
+      return carritoItems.reduce((acc, i) => acc + (Number(i.cantidad) || 1), 0);
+    }
+
+    function actualizarCarritoUI() {
+      const bar = document.getElementById('carritoBar');
+      const badge = document.getElementById('carritoBadge');
+      const texto = document.getElementById('carritoTexto');
+      const total = document.getElementById('carritoTotal');
+
+      if (carritoItems.length > 0) {
+        bar.classList.add('visible');
+        const unidades = totalUnidadesCarrito();
+        badge.textContent = unidades;
+        texto.textContent = unidades === 1 ? '1 artículo pedido' : `${unidades} artículos pedidos`;
+        const totalNum = calcularTotalCarrito();
+        total.textContent = totalNum > 0 ? totalNum.toFixed(2).replace('.', ',') + '€' : 'Ver detalle';
+      } else {
+        bar.classList.remove('visible');
+      }
+    }
+
+    function pedirCuentaChat() {
+      if (isCollapsed) toggleCollapse();
+      const mensaje = 'Quiero pedir la cuenta por favor';
+      addMessage(mensaje, 'user');
+      sendToVoiceflow(mensaje);
+    }
+
+    function abrirCarrito() {
+      const overlay = document.getElementById('carritoOverlay');
+      const itemsEl = document.getElementById('carritoItems');
+      const btnCocina = document.getElementById('btnEnviarCocina');
+      const totalEl = document.getElementById('carritoTotalModal');
+      overlay.classList.add('visible');
+
+      const pendientes = carritoItems.filter((it) => {
+        const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
+        return !lineasEnviadasCocina.has(key);
+      });
+      if (btnCocina) {
+        btnCocina.disabled = pendientes.length === 0;
+        btnCocina.textContent = pendientes.length === 0
+          ? '✓ Enviado a cocina'
+          : 'Enviar a cocina';
+      }
+
+      itemsEl.innerHTML = carritoItems.map((i) => {
+        const cantidad = Number(i.cantidad) || 1;
+        const precioUnit = Number(i.precio) || 0;
+        const subtotal = precioUnit * cantidad;
+        const precioMostrado = subtotal > 0
+          ? subtotal.toFixed(2).replace('.', ',') + '€'
+          : '—';
+        return `
+          <div class="modal-item">
+            <span class="modal-item-nombre">${cantidad}× ${i.nombre}</span>
+            <span class="modal-item-precio">${precioMostrado}</span>
+          </div>
+        `;
+      }).join('');
+
+      if (totalEl) {
+        const total = calcularTotalCarrito();
+        totalEl.textContent = total > 0
+          ? total.toFixed(2).replace('.', ',') + '€'
+          : '0,00€';
+      }
+    }
+
+    function cerrarCarrito(e) {
+      if (!e || e.target === document.getElementById('carritoOverlay')) {
+        document.getElementById('carritoOverlay').classList.remove('visible');
+      }
+    }
+
+    function abrirCuenta() {
+      document.getElementById('cuentaOverlay').classList.add('visible');
+    }
+
+    function cerrarCuenta(e) {
+      if (!e || e.target === document.getElementById('cuentaOverlay')) {
+        document.getElementById('cuentaOverlay').classList.remove('visible');
+      }
+    }
+
+    function pedirCuenta(metodo) {
+      cerrarCuenta();
+      const mensaje = metodo === 'efectivo'
+        ? 'Quiero pedir la cuenta, voy a pagar en efectivo 💵'
+        : 'Quiero pedir la cuenta, voy a pagar con tarjeta 💳';
+      addMessage(mensaje, 'user');
+      if (isCollapsed) toggleCollapse();
+      sendToVoiceflow(mensaje);
+    }
+
+    // Voiceflow
+    async function sendToVoiceflow(userMessage) {
+      const typing = addTyping();
+      try {
+        const response = await fetch(interactUrl(sessionId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: { type: 'text', payload: userMessage }, config: { tts: false, stripSSML: true } })
+        });
+        const data = await response.json();
+        typing.remove();
+        if (!response.ok || !Array.isArray(data)) {
+          console.error('Voiceflow/proxy:', response.status, data);
+          addMessage(
+            'El asistente no pudo responder (revisa la API key y la publicación en Voiceflow).',
+            'antuan'
+          );
+          return;
+        }
+        applyVoiceflowTrace(data);
+      } catch (err) {
+        typing.remove();
+        console.error(err);
+        addMessage('Ha habido un problema de conexión. Inténtalo de nuevo.', 'antuan');
+      }
+    }
+
+    async function launchSession() {
+      if (sessionLaunched) return;
+      sessionLaunched = true;
+
+      chatMessages.innerHTML = '';
+      const typing = addTyping();
+
+      try {
+        const response = await fetch(interactUrl(sessionId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: { type: 'launch' }, config: { tts: false, stripSSML: true } })
+        });
+        const data = await response.json();
+        typing.remove();
+        if (!response.ok || !Array.isArray(data)) {
+          console.error('Voiceflow launch:', response.status, data);
+          addMessage('¡Hola! Bienvenido al restaurante. ¿Qué te apetece pedir hoy?', 'antuan');
+          return;
+        }
+        applyVoiceflowTrace(data);
+        if (!chatMessages.querySelector('.msg.antuan')) {
+          addMessage('¡Hola! Bienvenido al restaurante. ¿Qué te apetece pedir hoy?', 'antuan');
+        }
+      } catch (err) {
+        typing.remove();
+        console.error(err);
+        if (!chatMessages.querySelector('.msg.antuan')) {
+          addMessage('¡Hola! Bienvenido al restaurante. ¿Qué te apetece pedir hoy?', 'antuan');
+        }
+      }
+    }
+
+    // Enviar texto
+    function sendMessage() {
+      // Si está grabando, parar primero y enviar el transcript
+      if (isRecording && recognition) {
+        recognition.stop();
+      }
+      setTimeout(() => {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        addMessage(text, 'user');
+        chatInput.value = '';
+        chatInput.placeholder = 'Escribe tu pedido...';
+        if (isCollapsed) toggleCollapse();
+        sendToVoiceflow(text);
+      }, isRecording ? 300 : 0);
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    // Micrófono: tap para activar / desactivar
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      let pendingTranscript = '';
+
+      function setMicUI(active) {
+        isRecording = active;
+        micBtn.classList.toggle('recording', active);
+        micBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        micBtn.querySelector('.mic-icon').textContent = active ? '🔴' : '🎙️';
+        micHint.classList.toggle('visible', active);
+        micHint.textContent = active
+          ? '🗣️ Escuchando… Pulsa ↑ para enviar'
+          : '';
+        // Cambiar send button a flecha cuando graba
+        sendBtn.querySelector('.send-icon').textContent = active ? '↑' : '↑';
+        sendBtn.style.background = active ? '#00C864' : 'var(--brand)';
+        sendBtn.style.boxShadow = active
+          ? '0 4px 12px rgba(0,200,100,0.4)'
+          : '0 4px 12px rgba(255,77,0,0.35)';
+      }
+
+      function stopMic() {
+        if (isRecording) recognition.stop();
+      }
+
+      function startMic() {
+        if (isCollapsed) toggleCollapse();
+        pendingTranscript = '';
+        chatInput.value = '';
+        chatInput.placeholder = '🎙️ Escuchando…';
+        try {
+          recognition.start();
+          setMicUI(true);
+        } catch (err) {
+          if (err.name === 'InvalidStateError') recognition.stop();
+        }
+      }
+
+      function toggleMic() {
+        if (isRecording) stopMic();
+        else startMic();
+      }
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        if (final) pendingTranscript += final;
+        chatInput.value = pendingTranscript + interim;
+        chatInput.placeholder = '🎙️ Escuchando…';
+      };
+
+      recognition.onend = () => {
+        chatInput.placeholder = 'Escribe tu pedido...';
+        setMicUI(false);
+        // No enviar automáticamente — el usuario pulsa ↑
+      };
+
+      recognition.onerror = () => {
+        chatInput.placeholder = 'Escribe tu pedido...';
+        setMicUI(false);
+      };
+
+      micBtn.setAttribute('aria-label', 'Activar o desactivar micrófono');
+      micBtn.setAttribute('aria-pressed', 'false');
+      micBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMic();
+      });
+
+    } else {
+      micBtn.style.opacity = '0.4';
+      micBtn.title = 'Voz no disponible en este navegador';
+    }
+
+    /* =====================================================
+     * SINCRONIZACIÓN ESTADO DEL PEDIDO (cliente ↔ cocina)
+     * ===================================================== */
+
+    const ESTADO_POLL_MS = 4000;
+    let estadoPedidos = [];
+    let estadoPolling = null;
+    let ultimaActualizacionEstado = 0;
+
+    function etiquetaEstadoCliente(estado) {
+      switch (estado) {
+        case 'pendiente': return 'Recibido en cocina';
+        case 'en_preparacion': return 'Preparando';
+        case 'listo': return '¡Listo!';
+        default: return estado;
+      }
+    }
+
+    function formatearHora(ts) {
+      try {
+        return new Date(ts).toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch (e) { return ''; }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function calcularEstadoGlobal(lista) {
+      // Estado "más urgente" para el progreso visual.
+      // Si hay algún pendiente, marcamos pendiente.
+      // Si todo está listo, marcamos listo.
+      // Si no hay nada pendiente y hay alguno en preparación, marcamos preparación.
+      if (lista.length === 0) return null;
+      const hayPendiente = lista.some((p) => p.estado === 'pendiente');
+      const hayPrep = lista.some((p) => p.estado === 'en_preparacion');
+      const todosListos = lista.every((p) => p.estado === 'listo');
+      if (todosListos) return 'listo';
+      if (hayPendiente) return 'pendiente';
+      if (hayPrep) return 'en_preparacion';
+      return 'pendiente';
+    }
+
+    function pintarProgreso(estadoGlobal) {
+      const steps = document.querySelectorAll('.estado-step');
+      const connectors = document.querySelectorAll('.estado-connector');
+
+      const orden = ['pendiente', 'en_preparacion', 'listo'];
+      const idxActivo = orden.indexOf(estadoGlobal);
+
+      steps.forEach((step, i) => {
+        step.classList.remove('activo', 'completado');
+        if (i < idxActivo) step.classList.add('completado');
+        if (i === idxActivo) step.classList.add('activo');
+        if (estadoGlobal === 'listo' && i === orden.length - 1) {
+          step.classList.add('activo');
+        }
+      });
+
+      connectors.forEach((c, i) => {
+        c.classList.toggle('completado', i < idxActivo);
+      });
+    }
+
+    function renderEstadoPedido() {
+      const panel = document.getElementById('estadoPedidoPanel');
+      const lista = document.getElementById('estadoPedidoLista');
+      const meta = document.getElementById('estadoPedidoActualizado');
+
+      // Solo mostramos pedidos activos + listos de las últimas 2h
+      const dosHoras = 2 * 60 * 60 * 1000;
+      const ahora = Date.now();
+      const visibles = estadoPedidos.filter((p) => {
+        if (p.estado !== 'listo') return true;
+        return ahora - (p.updatedAt || p.createdAt) < dosHoras;
+      });
+
+      if (visibles.length === 0) {
+        panel.classList.remove('visible');
+        return;
+      }
+      panel.classList.add('visible');
+
+      const estadoGlobal = calcularEstadoGlobal(visibles);
+      if (estadoGlobal) pintarProgreso(estadoGlobal);
+
+      meta.textContent =
+        'Actualizado ' + new Date(ultimaActualizacionEstado).toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+      lista.innerHTML = visibles
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map((p) => {
+          const resumen = p.items
+            .map((i) => `${i.cantidad}× ${escapeHtml(i.nombre)}`)
+            .join(', ');
+          return `
+            <div class="estado-pedido-fila">
+              <div class="estado-pedido-fila-info" title="${escapeHtml(resumen)}">
+                <strong>${escapeHtml(p.hora || formatearHora(p.createdAt))}</strong> · ${resumen}
+              </div>
+              <span class="estado-pill ${p.estado}">${etiquetaEstadoCliente(p.estado)}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    async function sincronizarEstadoPedido() {
+      try {
+        const url = `${PROXY_URL}/api/pedidos/mesa/${encodeURIComponent(MESA_NUMERO)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('estado');
+        const lista = await res.json();
+        if (Array.isArray(lista)) {
+          // Detectar si algún pedido pasó a "listo" para avisar
+          const previos = new Map(estadoPedidos.map((p) => [p.id, p.estado]));
+          estadoPedidos = lista;
+          ultimaActualizacionEstado = Date.now();
+          renderEstadoPedido();
+
+          lista.forEach((p) => {
+            const estadoAnterior = previos.get(p.id);
+            if (estadoAnterior && estadoAnterior !== p.estado) {
+              if (p.estado === 'en_preparacion') {
+                addMessage('Tu pedido ya está en preparación 🍳', 'antuan');
+              } else if (p.estado === 'listo') {
+                addMessage('¡Tu pedido está listo! ✅ Un camarero te lo lleva enseguida.', 'antuan');
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('No se pudo sincronizar el estado del pedido:', e);
+      }
+    }
+
+    function iniciarSincronizacionEstado() {
+      if (estadoPolling) return;
+      sincronizarEstadoPedido();
+      estadoPolling = setInterval(sincronizarEstadoPedido, ESTADO_POLL_MS);
+    }
+
+    iniciarSincronizacionEstado();
+
+    launchSession();
+  </script>
+
+</body>
+</html>

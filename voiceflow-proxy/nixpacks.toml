@@ -1,0 +1,10 @@
+# Configuración para Railway / Nixpacks
+# Asegura Node 20 LTS y npm install en producción.
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm-10_x"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev || npm install --omit=dev"]
+
+[start]
+cmd = "npm start"

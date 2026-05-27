@@ -465,6 +465,7 @@
     .plato {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       padding: 13px 0;
       border-bottom: 1px solid #F0EDE8;
       gap: 12px;
@@ -475,13 +476,41 @@
     .plato-precio { font-size: 14px; font-weight: 600; color: var(--brand); white-space: nowrap; flex-shrink: 0; }
     .nota { font-size: 11px; color: #BBB; text-align: center; padding: 20px 16px; line-height: 1.6; }
 
-    /* Botón añadir + stepper por plato */
+    /* Botón añadir + stepper por plato (caso simple: 1 sub-producto) */
     .plato-acciones {
       display: flex;
       align-items: center;
       flex-shrink: 0;
       min-width: 38px;
       justify-content: flex-end;
+    }
+    .plato-accion {
+      display: flex;
+      align-items: center;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .plato-accion-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.2;
+      text-align: center;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    /* Caso multi: varios sub-productos. Bajan a una nueva fila completa */
+    .plato-acciones-multi {
+      flex-basis: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    .plato-acciones-multi .plato-accion {
+      min-width: 70px;
     }
     .btn-anadir {
       width: 36px;
@@ -1090,16 +1119,18 @@
     }
 
     // Alias manuales: lo que dice el cliente → nombre real del menú.
-    // Se aplican antes del matcheo por tokens.
+    // Se aplican antes del matcheo por tokens. Para productos con variantes
+    // (media/entera, pinta/botellín), se puede indicar la variante por defecto
+    // y opcionalmente palabras clave que la fuerzan a la otra.
     const ALIAS_PRODUCTOS = [
       { alias: ['caña','canya','canas','cañas','tirador','tirada'], nombre: '18/70 La Rubia' },
       { alias: ['cerveza','cervezas','birra','birras'], nombre: '18/70 La Rubia' },
       { alias: ['agua','agua mineral','botella de agua'], nombre: 'Agua mineral' },
       { alias: ['vino tinto','copa de vino','tinto'], nombre: 'Copa de vino tinto' },
       { alias: ['vino blanco','blanco'], nombre: 'Copa de vino blanco' },
-      { alias: ['croquetas','croqueta'], nombre: 'Croquetas de jamón ibérico' },
+      { alias: ['croquetas','croqueta'], nombre: 'Croquetas de jamón ibérico (Entera)' },
       { alias: ['bravas','patatas bravas'], nombre: 'Patatas muy bravas' },
-      { alias: ['ensaladilla','rusa'], nombre: 'Ensaladilla rusa' },
+      { alias: ['ensaladilla','rusa'], nombre: 'Ensaladilla rusa (Entera)' },
       { alias: ['piparras'], nombre: '1/4 de Piparras fritas' },
       { alias: ['torreznos','torrezno'], nombre: 'Torreznos de Soria' },
       { alias: ['gilda','gildas'], nombre: 'Gilda de boquerón o anchoa' },
@@ -1142,14 +1173,19 @@
       { alias: ['virgin mojito'], nombre: 'Virgin Mojito' },
       { alias: ['pink tonic'], nombre: 'Pink Tonic' },
       { alias: ['san francisco'], nombre: 'San Francisco' },
-      { alias: ['vermut','vermouth','vermouth blanco'], nombre: 'Vermouth Blanco o Rojo' },
+      { alias: ['vermut','vermouth','vermouth blanco'], nombre: 'Vermouth Blanco' },
+      { alias: ['vermouth rojo'], nombre: 'Vermouth Rojo' },
       { alias: ['aperol','aperol spritz','spritz'], nombre: 'Aperol Spritz' },
       { alias: ['paloma','paloma rosa'], nombre: 'Paloma Rosa' },
-      { alias: ['paulaner','paulaner pinta','paulaner media'], nombre: 'Paulaner' },
-      { alias: ['heineken'], nombre: 'Heineken 1/3 · Amstel Tostada 00 · Cruzcampo sin gluten' },
-      { alias: ['amstel','tostada'], nombre: 'Heineken 1/3 · Amstel Tostada 00 · Cruzcampo sin gluten' },
-      { alias: ['cruzcampo','sin gluten'], nombre: 'El Aguila Sin Filtrar · Sin Gluten 00' },
-      { alias: ['aguila','el aguila','águila'], nombre: 'El Aguila Dorada' }
+      { alias: ['paulaner'], nombre: 'Paulaner (Media)' },
+      { alias: ['paulaner pinta','pinta de paulaner'], nombre: 'Paulaner (Pinta)' },
+      { alias: ['heineken'], nombre: 'Heineken 1/3' },
+      { alias: ['amstel','tostada'], nombre: 'Amstel Tostada 00' },
+      { alias: ['cruzcampo','cruzcampo sin gluten'], nombre: 'Cruzcampo sin gluten' },
+      { alias: ['sin filtrar','el aguila sin filtrar','aguila sin filtrar'], nombre: 'El Aguila Sin Filtrar' },
+      { alias: ['sin gluten 00','aguila sin gluten'], nombre: 'El Aguila Sin Gluten 00' },
+      { alias: ['aguila','el aguila','águila','aguila dorada'], nombre: 'El Aguila Dorada (Caña)' },
+      { alias: ['botellín','botellin','aguila botellin'], nombre: 'El Aguila Dorada (Botellín)' }
     ];
 
     // Productos extra que no salen literal en la carta pero el cliente puede pedir.
@@ -1159,24 +1195,173 @@
       { nombre: 'Copa de vino blanco', precio: 4.00 }
     ];
 
-    let MENU_PRODUCTOS = [];   // [{ nombre, precio, tokens, precioTxt }]
+    /**
+     * Detecta variantes en el texto de precio.
+     * Ejemplos soportados:
+     *   "Media 8,50€ / Entera 12,50€"
+     *   "Media 3,50€ / Pinta 4,50€"
+     *   "Botellín 3,20€ / 3,50€"
+     *   "9,00€/pax"  → no es variante, es nota
+     *   "12,00€"     → simple
+     * Devuelve [{ etiqueta, precio }] (longitud >= 1).
+     */
+    function extraerVariantesDePrecio(precioTxt) {
+      const txt = String(precioTxt || '').trim();
+      if (!txt) return [{ etiqueta: null, precio: 0 }];
+
+      // Variantes etiquetadas: "Media 8,50€ / Entera 12,50€"
+      const reEtiq = /([A-Za-zÁÉÍÓÚáéíóúñÑ\u00C0-\u017F]+)\s+(\d+[.,]\d{1,2})\s*€/g;
+      const etiquetadas = [];
+      let m;
+      while ((m = reEtiq.exec(txt)) !== null) {
+        const etiqueta = m[1].trim();
+        const precio = parseFloat(m[2].replace(',', '.'));
+        if (!isNaN(precio)) etiquetadas.push({ etiqueta, precio });
+      }
+      if (etiquetadas.length >= 2) return etiquetadas;
+
+      // "Botellín 3,20€ / 3,50€" → la segunda no tiene etiqueta, asumimos "Caña"
+      const reMixto = /([A-Za-zÁÉÍÓÚáéíóúñÑ\u00C0-\u017F]+)\s+(\d+[.,]\d{1,2})\s*€\s*\/\s*(\d+[.,]\d{1,2})\s*€/;
+      const mx = reMixto.exec(txt);
+      if (mx) {
+        return [
+          { etiqueta: mx[1].trim(), precio: parseFloat(mx[2].replace(',', '.')) },
+          { etiqueta: 'Caña', precio: parseFloat(mx[3].replace(',', '.')) }
+        ];
+      }
+
+      // Precio único: tomamos el primer valor con €
+      const reUno = /(\d+[.,]\d{1,2})\s*€/;
+      const u = reUno.exec(txt);
+      const precio = u ? parseFloat(u[1].replace(',', '.')) : 0;
+      return [{ etiqueta: null, precio }];
+    }
+
+    // Palabras que, cuando inician un sub-producto, indican que ese
+    // sub-producto continúa el "namespace" del primero. Por ejemplo:
+    //   "El Aguila Sin Filtrar · Sin Gluten 00"
+    //          ^padre completo   ^empieza con "sin" → hereda "El Aguila"
+    const PREFIX_CONTINUATORS = new Set([
+      'sin', 'con', 'de', 'del', 'al', 'la', 'el',
+      'media', 'pinta', 'cana', 'caña', 'botellin', 'botellín'
+    ]);
+
+    /**
+     * Si el nombre del plato contiene varios productos separados por · o ,
+     * los parte en una lista. Ejemplos:
+     *   "Whisky Sour · Espresso Martini"      → ["Whisky Sour", "Espresso Martini"]
+     *   "Moscow Mule, Bloody Mary, Caipirinha" → 3 elementos
+     *   "Gilda de boquerón o anchoa"          → ["Gilda de boquerón o anchoa"]
+     *   "Heineken 1/3 · Amstel Tostada 00 · Cruzcampo sin gluten" → 3
+     *   "El Aguila Sin Filtrar · Sin Gluten 00" → ["El Aguila Sin Filtrar",
+     *                                              "El Aguila Sin Gluten 00"]
+     * Si solo hay uno, devuelve [nombre].
+     */
+    function partirCompuesto(nombre) {
+      if (!nombre) return [];
+      let partes = String(nombre)
+        .split(/\s*[·,]\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (partes.length <= 1) return partes.length ? partes : [nombre];
+
+      // Heredar prefijo del primer sub-producto si los siguientes empiezan
+      // con un “continuador” (sin, con, de, …) → mismo namespace.
+      const palabrasPrim = partes[0].split(/\s+/);
+      if (palabrasPrim.length >= 2) {
+        const candidatoPrefijo = palabrasPrim.slice(0, 2).join(' ');
+        partes = partes.map((p, i) => {
+          if (i === 0) return p;
+          const primera = (p.split(/\s+/)[0] || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+          if (PREFIX_CONTINUATORS.has(primera)) {
+            return `${candidatoPrefijo} ${p}`;
+          }
+          return p;
+        });
+      }
+      return partes;
+    }
+
+    /**
+     * Construye los sub-productos pedibles de una fila del menú.
+     * Devuelve un array con elementos { nombre, etiqueta, precio, padre }:
+     *   - "padre" es el nombre completo del .plato tal y como aparece en
+     *     la carta (para volver a localizarlo en el DOM).
+     *   - "etiqueta" es null cuando el plato es simple; "Media"/"Entera"/etc.
+     *     cuando es variante; o el propio sub-nombre cuando es compuesto.
+     *   - "nombre" es el nombre canónico que se manda a cocina.
+     */
+    function expandirSubproductos(nombrePadre, precioTxt) {
+      const variantes = extraerVariantesDePrecio(precioTxt);
+      const subnombres = partirCompuesto(nombrePadre);
+
+      // Plato compuesto (varios productos en una sola línea)
+      if (subnombres.length > 1) {
+        const precio = variantes[0].precio; // todos al mismo precio
+        return subnombres.map((sub) => ({
+          padre: nombrePadre,
+          nombre: sub,
+          etiqueta: sub,
+          precio
+        }));
+      }
+
+      // Plato con variantes (media/entera, pinta/botellín, …)
+      if (variantes.length > 1) {
+        return variantes.map((v) => ({
+          padre: nombrePadre,
+          nombre: `${nombrePadre} (${v.etiqueta})`,
+          etiqueta: v.etiqueta,
+          precio: v.precio
+        }));
+      }
+
+      // Caso simple
+      return [{
+        padre: nombrePadre,
+        nombre: nombrePadre,
+        etiqueta: null,
+        precio: variantes[0].precio
+      }];
+    }
+
+    let MENU_PRODUCTOS = [];   // [{ nombre, precio, tokens, precioTxt, padre, etiqueta }]
     let MENU_INDICE = new Map(); // nombre normalizado → producto
+    let MENU_PADRES = new Map(); // nombre del .plato → [subproductos]
 
     function construirMenu() {
       MENU_PRODUCTOS = [];
       MENU_INDICE = new Map();
+      MENU_PADRES = new Map();
 
       document.querySelectorAll('.plato').forEach((el) => {
         const nombreEl = el.querySelector('.plato-nombre');
         const precioEl = el.querySelector('.plato-precio');
         if (!nombreEl) return;
-        const nombre = nombreEl.textContent.trim();
+        const nombrePadre = nombreEl.textContent.trim();
         const precioTxt = precioEl ? precioEl.textContent.trim() : '';
-        const precio = precioBaseDesdeTexto(precioTxt);
-        const tokens = tokensRelevantes(nombre);
-        const prod = { nombre, precio, precioTxt, tokens };
-        MENU_PRODUCTOS.push(prod);
-        MENU_INDICE.set(normalizar(nombre), prod);
+        const subs = expandirSubproductos(nombrePadre, precioTxt);
+
+        const subprods = subs.map((s) => {
+          const prod = {
+            nombre: s.nombre,
+            precio: s.precio,
+            precioTxt: s.precio > 0
+              ? s.precio.toFixed(2).replace('.', ',') + '€'
+              : precioTxt,
+            tokens: tokensRelevantes(s.nombre),
+            padre: s.padre,
+            etiqueta: s.etiqueta
+          };
+          MENU_PRODUCTOS.push(prod);
+          MENU_INDICE.set(normalizar(prod.nombre), prod);
+          return prod;
+        });
+
+        MENU_PADRES.set(nombrePadre, subprods);
       });
 
       PRODUCTOS_EXTRA.forEach((p) => {
@@ -1184,11 +1369,74 @@
           nombre: p.nombre,
           precio: p.precio,
           precioTxt: p.precio.toFixed(2).replace('.', ',') + '€',
-          tokens: tokensRelevantes(p.nombre)
+          tokens: tokensRelevantes(p.nombre),
+          padre: p.nombre,
+          etiqueta: null
         };
         MENU_PRODUCTOS.push(prod);
         MENU_INDICE.set(normalizar(prod.nombre), prod);
       });
+    }
+
+    // Palabras que en una frase modifican la variante elegida
+    const PALABRAS_VARIANTE = {
+      'media': 'Media',
+      'medias': 'Media',
+      'racion': 'Media', // “una ración” suele usarse como media
+      'ración': 'Media',
+      'entera': 'Entera',
+      'enteras': 'Entera',
+      'completa': 'Entera',
+      'grande': 'Entera',
+      'pinta': 'Pinta',
+      'pintas': 'Pinta',
+      'caña': 'Caña',
+      'canya': 'Caña',
+      'cañas': 'Caña',
+      'botellin': 'Botellín',
+      'botellín': 'Botellín',
+      'botellines': 'Botellín'
+    };
+
+    /**
+     * Si el cliente menciona "media", "entera", "pinta", "botellín", "caña"
+     * cerca del nombre del producto, devuelve la etiqueta normalizada para
+     * intentar resolver el sub-producto exacto. Si no, null.
+     */
+    function detectarVarianteCerca(textoNormal, idxProducto) {
+      const ventana = textoNormal
+        .slice(Math.max(0, idxProducto - 30), idxProducto + 40)
+        .split(/\s+/);
+      for (const w of ventana) {
+        const norm = w.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (PALABRAS_VARIANTE[w]) return PALABRAS_VARIANTE[w];
+        if (PALABRAS_VARIANTE[norm]) return PALABRAS_VARIANTE[norm];
+      }
+      return null;
+    }
+
+    /**
+     * Dado un producto canónico que es una variante (p.ej. "Paulaner (Media)"),
+     * intenta devolver la versión con la variante detectada en la frase.
+     * Si no encuentra una mejor, devuelve el producto original.
+     */
+    function ajustarVariantePorContexto(prod, textoNormal, idxProducto) {
+      if (!prod || !prod.padre) return prod;
+      const subs = MENU_PADRES.get(prod.padre);
+      if (!subs || subs.length <= 1) return prod;
+      // Solo aplica si hay variantes Media/Entera/Pinta/Botellín/Caña
+      const variantesDisponibles = subs
+        .map((s) => s.etiqueta)
+        .filter((e) => e && /^(Media|Entera|Pinta|Botellín|Caña)$/i.test(e));
+      if (variantesDisponibles.length === 0) return prod;
+
+      const etiqueta = detectarVarianteCerca(textoNormal, idxProducto);
+      if (!etiqueta) return prod;
+
+      const match = subs.find((s) =>
+        s.etiqueta && s.etiqueta.toLowerCase() === etiqueta.toLowerCase()
+      );
+      return match || prod;
     }
 
     /**
@@ -1208,8 +1456,9 @@
           const aliasNorm = normalizar(alias);
           const idx = normal.indexOf(aliasNorm);
           if (idx === -1) continue;
-          const prod = MENU_INDICE.get(normalizar(grupo.nombre));
-          if (!prod) continue;
+          const prodBase = MENU_INDICE.get(normalizar(grupo.nombre));
+          if (!prodBase) continue;
+          const prod = ajustarVariantePorContexto(prodBase, normal, idx);
           const cantidad = extraerCantidadCerca(normal, idx);
           acumularProducto(detectados, prod, cantidad);
         }
@@ -1223,8 +1472,10 @@
         if (!todos) return;
         if (detectados.has(prod.nombre)) return; // ya añadido por alias
         const idx = normal.indexOf(prod.tokens[0]);
+        const prodFinal = ajustarVariantePorContexto(prod, normal, idx);
+        if (detectados.has(prodFinal.nombre)) return;
         const cantidad = extraerCantidadCerca(normal, idx);
-        acumularProducto(detectados, prod, cantidad);
+        acumularProducto(detectados, prodFinal, cantidad);
       });
 
       return [...detectados.entries()].map(([nombre, info]) => ({
@@ -1268,7 +1519,9 @@
         if (addBtn) {
           e.stopPropagation();
           e.preventDefault();
-          pulsarBotonAnadir(addBtn.dataset.nombre);
+          const nombre = addBtn.dataset.nombre
+            || addBtn.closest('.plato-accion')?.dataset.nombre;
+          if (nombre) pulsarBotonAnadir(nombre);
           return;
         }
         const stepBtn = e.target.closest('.plato-stepper button');
@@ -1277,7 +1530,8 @@
           e.preventDefault();
           if (stepBtn.disabled) return;
           const stepper = stepBtn.closest('.plato-stepper');
-          const nombre = stepper?.dataset.nombre;
+          const nombre = stepper?.dataset.nombre
+            || stepBtn.closest('.plato-accion')?.dataset.nombre;
           if (!nombre) return;
           const delta = stepBtn.classList.contains('btn-stepper-mas') ? +1 : -1;
           pulsarStepper(nombre, delta);
@@ -1285,12 +1539,61 @@
       });
     }
 
-    // Algunos productos del menú se listan en una sola línea (varios cócteles,
-    // varias cervezas…). En esos casos no inyectamos botón “+” inline porque
-    // el nombre completo es ambiguo: el cliente lo pedirá por chat y el
-    // parser detectará el cóctel concreto.
-    function platoEsCompuesto(nombre) {
-      return /[,·]/.test(nombre);
+    /**
+     * Construye un bloque <div class="plato-accion"> con su botón "+" y su
+     * stepper (oculto inicialmente), listo para ser inyectado en un .plato.
+     * Si `etiqueta` es no nulo, se muestra encima del botón para distinguir
+     * sub-productos (Media/Entera, Whisky Sour/Espresso Martini, etc.).
+     */
+    function crearAccionPlato(nombreCanonico, etiqueta, precio) {
+      const accion = document.createElement('div');
+      accion.className = 'plato-accion';
+      accion.dataset.nombre = nombreCanonico;
+
+      if (etiqueta) {
+        const lbl = document.createElement('div');
+        lbl.className = 'plato-accion-label';
+        const precioTxt = (typeof precio === 'number' && precio > 0)
+          ? precio.toFixed(2).replace('.', ',') + '€'
+          : '';
+        lbl.textContent = precioTxt ? `${etiqueta} · ${precioTxt}` : etiqueta;
+        accion.appendChild(lbl);
+      }
+
+      const btnAdd = document.createElement('button');
+      btnAdd.type = 'button';
+      btnAdd.className = 'btn-anadir';
+      btnAdd.dataset.nombre = nombreCanonico;
+      btnAdd.setAttribute('aria-label', 'Añadir ' + nombreCanonico);
+      btnAdd.textContent = '+';
+
+      const stepper = document.createElement('div');
+      stepper.className = 'plato-stepper';
+      stepper.dataset.nombre = nombreCanonico;
+
+      const btnMinus = document.createElement('button');
+      btnMinus.type = 'button';
+      btnMinus.className = 'btn-stepper-menos';
+      btnMinus.setAttribute('aria-label', 'Restar uno');
+      btnMinus.textContent = '−';
+
+      const spanCant = document.createElement('span');
+      spanCant.className = 'plato-stepper-cantidad';
+      spanCant.textContent = '1';
+
+      const btnPlus = document.createElement('button');
+      btnPlus.type = 'button';
+      btnPlus.className = 'btn-stepper-mas';
+      btnPlus.setAttribute('aria-label', 'Sumar uno');
+      btnPlus.textContent = '+';
+
+      stepper.appendChild(btnMinus);
+      stepper.appendChild(spanCant);
+      stepper.appendChild(btnPlus);
+
+      accion.appendChild(btnAdd);
+      accion.appendChild(stepper);
+      return accion;
     }
 
     function inyectarStepperEnPlatos() {
@@ -1298,46 +1601,20 @@
         if (el.querySelector('.plato-acciones')) return;
         const nombreEl = el.querySelector('.plato-nombre');
         if (!nombreEl) return;
-        const nombre = nombreEl.textContent.trim();
-        if (platoEsCompuesto(nombre)) return;
-        const prod = MENU_INDICE.get(normalizar(nombre));
-        if (!prod) return;
+        const nombrePadre = nombreEl.textContent.trim();
+        const subs = MENU_PADRES.get(nombrePadre);
+        if (!subs || subs.length === 0) return;
 
         const acciones = document.createElement('div');
         acciones.className = 'plato-acciones';
+        if (subs.length > 1) acciones.classList.add('plato-acciones-multi');
 
-        const btnAdd = document.createElement('button');
-        btnAdd.type = 'button';
-        btnAdd.className = 'btn-anadir';
-        btnAdd.dataset.nombre = nombre;
-        btnAdd.setAttribute('aria-label', 'Añadir ' + nombre);
-        btnAdd.textContent = '+';
+        subs.forEach((sub) => {
+          const etiqueta = subs.length > 1 ? sub.etiqueta : null;
+          const accion = crearAccionPlato(sub.nombre, etiqueta, sub.precio);
+          acciones.appendChild(accion);
+        });
 
-        const stepper = document.createElement('div');
-        stepper.className = 'plato-stepper';
-        stepper.dataset.nombre = nombre;
-
-        const btnMinus = document.createElement('button');
-        btnMinus.type = 'button';
-        btnMinus.className = 'btn-stepper-menos';
-        btnMinus.setAttribute('aria-label', 'Restar uno');
-        btnMinus.textContent = '−';
-
-        const spanCant = document.createElement('span');
-        spanCant.className = 'plato-stepper-cantidad';
-        spanCant.textContent = '1';
-
-        const btnPlus = document.createElement('button');
-        btnPlus.type = 'button';
-        btnPlus.className = 'btn-stepper-mas';
-        btnPlus.setAttribute('aria-label', 'Sumar uno');
-        btnPlus.textContent = '+';
-
-        stepper.appendChild(btnMinus);
-        stepper.appendChild(spanCant);
-        stepper.appendChild(btnPlus);
-        acciones.appendChild(btnAdd);
-        acciones.appendChild(stepper);
         el.appendChild(acciones);
       });
     }
@@ -1525,15 +1802,16 @@
     }
 
     /**
-     * Mantiene sincronizada la UI de cada plato con el contenido del
-     * carrito: si tiene unidades muestra el stepper, si no, el botón “+”.
+     * Mantiene sincronizada la UI de cada plato (cada sub-producto) con el
+     * contenido del carrito: si tiene unidades muestra el stepper, si no
+     * el botón “+”.
      */
     function actualizarSteppersUI() {
-      document.querySelectorAll('.plato-acciones').forEach((acciones) => {
-        const btnAdd = acciones.querySelector('.btn-anadir');
-        const stepper = acciones.querySelector('.plato-stepper');
+      document.querySelectorAll('.plato-accion').forEach((accion) => {
+        const btnAdd = accion.querySelector('.btn-anadir');
+        const stepper = accion.querySelector('.plato-stepper');
         if (!btnAdd || !stepper) return;
-        const nombre = btnAdd.dataset.nombre;
+        const nombre = accion.dataset.nombre || btnAdd.dataset.nombre;
         if (!nombre) return;
         const prod = MENU_INDICE.get(normalizar(nombre));
         const nombreCanonico = prod ? prod.nombre : nombre;

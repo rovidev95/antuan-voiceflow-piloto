@@ -30,3 +30,6 @@ RoviDev-Propuesta-*.html
 
 # Archivos sueltos guardados por el navegador
 * _files/
+
+# Local Netlify folder
+.netlify

@@ -132,7 +132,51 @@
     }
     .modal-item:last-of-type { border-bottom: none; }
     .modal-item-nombre { flex: 1; color: var(--text); }
-    .modal-item-precio { color: var(--brand); font-weight: 600; margin-left: 12px; }
+    .modal-item-precio { color: var(--brand); font-weight: 600; margin-left: 12px; white-space: nowrap; }
+    .modal-item-stepper {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--brand-soft);
+      border-radius: 18px;
+      padding: 2px;
+      margin: 0 10px;
+    }
+    .modal-item-stepper button {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: var(--brand);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+    }
+    .modal-item-stepper button[disabled] {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .modal-item-stepper span {
+      min-width: 20px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--brand);
+      font-size: 14px;
+      padding: 0 2px;
+    }
+    .modal-item-enviado {
+      font-size: 10px;
+      color: #00C864;
+      letter-spacing: 0.3px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
     .modal-total {
       display: flex;
       justify-content: space-between;
@@ -420,16 +464,95 @@
     }
     .plato {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       padding: 13px 0;
       border-bottom: 1px solid #F0EDE8;
       gap: 12px;
     }
+    .plato > :first-child { flex: 1; min-width: 0; }
     .plato-nombre { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
     .plato-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
     .plato-precio { font-size: 14px; font-weight: 600; color: var(--brand); white-space: nowrap; flex-shrink: 0; }
     .nota { font-size: 11px; color: #BBB; text-align: center; padding: 20px 16px; line-height: 1.6; }
+
+    /* Botón añadir + stepper por plato */
+    .plato-acciones {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      min-width: 38px;
+      justify-content: flex-end;
+    }
+    .btn-anadir {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--brand);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(255,77,0,0.35);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 0;
+    }
+    .btn-anadir:active { transform: scale(0.9); box-shadow: 0 1px 4px rgba(255,77,0,0.4); }
+    .btn-anadir.hidden { display: none; }
+
+    .plato-stepper {
+      display: none;
+      align-items: center;
+      gap: 2px;
+      background: var(--brand-soft);
+      border-radius: 22px;
+      padding: 3px;
+    }
+    .plato-stepper.visible { display: inline-flex; }
+    .plato-stepper button {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: var(--brand);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .plato-stepper button:active { transform: scale(0.9); }
+    .plato-stepper button[disabled] {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .plato-stepper-cantidad {
+      min-width: 26px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--brand);
+      padding: 0 4px;
+    }
+
+    /* Pequeña animación de "saltito" al añadir un producto */
+    @keyframes carrito-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .carrito-bar.pulse { animation: carrito-pulse 0.4s ease; }
 
     /* BOTÓN PEDIR CUENTA */
     .cuenta-btn-wrapper {
@@ -914,7 +1037,6 @@
 
     let ultimoPedidoEnviadoKey = null;
     let pedidoEnviadoACocina = false;
-    const lineasEnviadasCocina = new Set();
 
     function esMensajeDeCuenta(texto) {
       return /cuenta|efectivo|tarjeta|pagar|factura/i.test(texto);
@@ -1134,6 +1256,90 @@
     }
 
     construirMenu();
+    inyectarStepperEnPlatos();
+    engancharCartaClicks();
+
+    function engancharCartaClicks() {
+      const carta = document.querySelector('.carta');
+      if (!carta) return;
+      carta.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('.btn-anadir');
+        if (addBtn) {
+          e.stopPropagation();
+          e.preventDefault();
+          pulsarBotonAnadir(addBtn.dataset.nombre);
+          return;
+        }
+        const stepBtn = e.target.closest('.plato-stepper button');
+        if (stepBtn) {
+          e.stopPropagation();
+          e.preventDefault();
+          if (stepBtn.disabled) return;
+          const stepper = stepBtn.closest('.plato-stepper');
+          const nombre = stepper?.dataset.nombre;
+          if (!nombre) return;
+          const delta = stepBtn.classList.contains('btn-stepper-mas') ? +1 : -1;
+          pulsarStepper(nombre, delta);
+        }
+      });
+    }
+
+    // Algunos productos del menú se listan en una sola línea (varios cócteles,
+    // varias cervezas…). En esos casos no inyectamos botón “+” inline porque
+    // el nombre completo es ambiguo: el cliente lo pedirá por chat y el
+    // parser detectará el cóctel concreto.
+    function platoEsCompuesto(nombre) {
+      return /[,·]/.test(nombre);
+    }
+
+    function inyectarStepperEnPlatos() {
+      document.querySelectorAll('.plato').forEach((el) => {
+        if (el.querySelector('.plato-acciones')) return;
+        const nombreEl = el.querySelector('.plato-nombre');
+        if (!nombreEl) return;
+        const nombre = nombreEl.textContent.trim();
+        if (platoEsCompuesto(nombre)) return;
+        const prod = MENU_INDICE.get(normalizar(nombre));
+        if (!prod) return;
+
+        const acciones = document.createElement('div');
+        acciones.className = 'plato-acciones';
+
+        const btnAdd = document.createElement('button');
+        btnAdd.type = 'button';
+        btnAdd.className = 'btn-anadir';
+        btnAdd.dataset.nombre = nombre;
+        btnAdd.setAttribute('aria-label', 'Añadir ' + nombre);
+        btnAdd.textContent = '+';
+
+        const stepper = document.createElement('div');
+        stepper.className = 'plato-stepper';
+        stepper.dataset.nombre = nombre;
+
+        const btnMinus = document.createElement('button');
+        btnMinus.type = 'button';
+        btnMinus.className = 'btn-stepper-menos';
+        btnMinus.setAttribute('aria-label', 'Restar uno');
+        btnMinus.textContent = '−';
+
+        const spanCant = document.createElement('span');
+        spanCant.className = 'plato-stepper-cantidad';
+        spanCant.textContent = '1';
+
+        const btnPlus = document.createElement('button');
+        btnPlus.type = 'button';
+        btnPlus.className = 'btn-stepper-mas';
+        btnPlus.setAttribute('aria-label', 'Sumar uno');
+        btnPlus.textContent = '+';
+
+        stepper.appendChild(btnMinus);
+        stepper.appendChild(spanCant);
+        stepper.appendChild(btnPlus);
+        acciones.appendChild(btnAdd);
+        acciones.appendChild(stepper);
+        el.appendChild(acciones);
+      });
+    }
 
     function interactUrl(sessionId) {
       return `${PROXY_URL}/api/state/user/${ encodeURIComponent(sessionId) }/interact`;
@@ -1216,20 +1422,71 @@
 
     /**
      * Acumula un item en el carrito local, sumando cantidad si ya estaba.
+     * Cada item lleva `cantidadEnviada`: las unidades que ya están en cocina.
+     * No se permite bajar la cantidad total por debajo de las enviadas.
      */
     function acumularEnCarrito(item) {
       if (!item || !item.nombre) return;
       const existente = carritoItems.find((c) => c.nombre === item.nombre);
+      const sumando = Math.max(1, Number(item.cantidad) || 1);
       if (existente) {
-        existente.cantidad = (existente.cantidad || 1) + (item.cantidad || 1);
+        existente.cantidad = (Number(existente.cantidad) || 0) + sumando;
       } else {
         carritoItems.push({
           nombre: item.nombre,
-          cantidad: item.cantidad || 1,
+          cantidad: sumando,
+          cantidadEnviada: 0,
           precio: typeof item.precio === 'number' ? item.precio : 0,
           nota: item.nota || ''
         });
       }
+    }
+
+    /**
+     * Ajusta la cantidad de un producto. delta puede ser +N o -N.
+     * Si el resultado quedaría por debajo de las unidades ya enviadas a
+     * cocina, se queda en ese mínimo (no se puede des-pedir lo que ya está
+     * preparándose). Si baja a 0, se elimina del carrito.
+     */
+    function cambiarCantidadProducto(nombre, delta) {
+      if (!nombre) return false;
+      const prod = MENU_INDICE.get(normalizar(nombre));
+      const nombreCanonico = prod ? prod.nombre : nombre;
+      let item = carritoItems.find((c) => c.nombre === nombreCanonico);
+
+      if (!item) {
+        if (delta <= 0) return false;
+        if (!prod) return false;
+        carritoItems.push({
+          nombre: prod.nombre,
+          cantidad: delta,
+          cantidadEnviada: 0,
+          precio: typeof prod.precio === 'number' ? prod.precio : 0,
+          nota: ''
+        });
+        return true;
+      }
+
+      const minima = Number(item.cantidadEnviada) || 0;
+      const nuevaCantidad = Math.max(minima, (Number(item.cantidad) || 0) + delta);
+      if (nuevaCantidad === item.cantidad) return false;
+      item.cantidad = nuevaCantidad;
+      if (item.cantidad <= 0) {
+        carritoItems = carritoItems.filter((c) => c !== item);
+      }
+      return true;
+    }
+
+    /**
+     * Pulso visual breve en la barra del carrito para indicar que se ha
+     * añadido / modificado un producto.
+     */
+    function pulsoCarrito() {
+      const bar = document.getElementById('carritoBar');
+      if (!bar) return;
+      bar.classList.remove('pulse');
+      void bar.offsetWidth; // reflow para reiniciar animación
+      bar.classList.add('pulse');
     }
 
     /**
@@ -1241,20 +1498,67 @@
       const items = parsearPedido(texto);
       if (items.length === 0) return; // mensaje conversacional, no es un pedido
 
-      // Filtrar duplicados (mismo producto + cantidad ya enviado en esta sesión)
-      const nuevos = items.filter((it) => {
-        const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
-        if (lineasEnviadasCocina.has(key)) return false;
-        lineasEnviadasCocina.add(key);
-        return true;
-      });
-      if (nuevos.length === 0) return;
-
-      // Actualizar carrito local
-      nuevos.forEach((it) => acumularEnCarrito(it));
+      items.forEach((it) => acumularEnCarrito(it));
       actualizarCarritoUI();
+      actualizarSteppersUI();
 
-      await enviarItemsACocina(nuevos, false);
+      await enviarPedidoACocina(false);
+    }
+
+    /**
+     * Stepper de cada plato del menú: añadir / restar 1 unidad.
+     */
+    function pulsarBotonAnadir(nombre) {
+      if (cambiarCantidadProducto(nombre, +1)) {
+        actualizarCarritoUI();
+        actualizarSteppersUI();
+        pulsoCarrito();
+      }
+    }
+    function pulsarStepper(nombre, delta) {
+      if (cambiarCantidadProducto(nombre, delta)) {
+        actualizarCarritoUI();
+        actualizarSteppersUI();
+        if (delta > 0) pulsoCarrito();
+      }
+    }
+
+    /**
+     * Mantiene sincronizada la UI de cada plato con el contenido del
+     * carrito: si tiene unidades muestra el stepper, si no, el botón “+”.
+     */
+    function actualizarSteppersUI() {
+      document.querySelectorAll('.plato-acciones').forEach((acciones) => {
+        const btnAdd = acciones.querySelector('.btn-anadir');
+        const stepper = acciones.querySelector('.plato-stepper');
+        if (!btnAdd || !stepper) return;
+        const nombre = btnAdd.dataset.nombre;
+        if (!nombre) return;
+        const prod = MENU_INDICE.get(normalizar(nombre));
+        const nombreCanonico = prod ? prod.nombre : nombre;
+        const item = carritoItems.find((c) => c.nombre === nombreCanonico);
+        const cantidad = item ? (Number(item.cantidad) || 0) : 0;
+        const enviada = item ? (Number(item.cantidadEnviada) || 0) : 0;
+
+        if (cantidad <= 0) {
+          btnAdd.classList.remove('hidden');
+          stepper.classList.remove('visible');
+          return;
+        }
+
+        btnAdd.classList.add('hidden');
+        stepper.classList.add('visible');
+        const cantSpan = stepper.querySelector('.plato-stepper-cantidad');
+        if (cantSpan) cantSpan.textContent = String(cantidad);
+        const btnMinus = stepper.querySelector('.btn-stepper-menos');
+        if (btnMinus) {
+          const bloqueado = cantidad <= enviada;
+          btnMinus.disabled = bloqueado;
+          btnMinus.title = bloqueado
+            ? 'Esta unidad ya está en cocina'
+            : '';
+        }
+      });
     }
 
     /**
@@ -1303,14 +1607,20 @@
     }
 
     /**
-     * Envío manual desde el botón del carrito: revisa todo el carrito
-     * actual y manda lo que aún no se haya mandado.
+     * Envío a cocina: manda únicamente el DELTA por producto
+     * (cantidad - cantidadEnviada). Se usa tanto desde el botón manual
+     * del carrito como desde el flujo de chat tras parsear un pedido.
      */
     async function enviarPedidoACocina(forzar) {
-      const pendientes = carritoItems.filter((it) => {
-        const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
-        return !lineasEnviadasCocina.has(key);
-      });
+      const pendientes = carritoItems
+        .map((it) => ({
+          ref: it,
+          delta: Math.max(0, (Number(it.cantidad) || 0) - (Number(it.cantidadEnviada) || 0))
+        }))
+        .filter((p) => p.delta > 0);
+
+      const btn = document.getElementById('btnEnviarCocina');
+
       if (pendientes.length === 0) {
         if (forzar) {
           alert('Tu pedido ya está enviado a cocina. ¡Buen provecho!');
@@ -1318,22 +1628,30 @@
         return;
       }
 
-      const btn = document.getElementById('btnEnviarCocina');
-      if (btn) {
+      if (btn && forzar) {
         btn.disabled = true;
         btn.textContent = 'Enviando…';
       }
 
-      const ok = await enviarItemsACocina(pendientes, !!forzar);
+      const itemsAEnviar = pendientes.map((p) => ({
+        cantidad: p.delta,
+        nombre: p.ref.nombre,
+        nota: p.ref.nota || ''
+      }));
+
+      const ok = await enviarItemsACocina(itemsAEnviar, !!forzar);
 
       if (ok) {
-        pendientes.forEach((it) => {
-          const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
-          lineasEnviadasCocina.add(key);
+        pendientes.forEach((p) => {
+          p.ref.cantidadEnviada = (Number(p.ref.cantidadEnviada) || 0) + p.delta;
         });
-        if (btn) btn.textContent = '✓ Enviado a cocina';
+        actualizarCarritoUI();
+        actualizarSteppersUI();
+        if (btn && forzar) {
+          btn.textContent = '✓ Enviado a cocina';
+        }
         if (forzar) cerrarCarrito();
-      } else if (btn) {
+      } else if (btn && forzar) {
         btn.disabled = false;
         btn.textContent = 'Enviar a cocina';
       }
@@ -1375,6 +1693,15 @@
       sendToVoiceflow(mensaje);
     }
 
+    function escapeHtml(txt) {
+      return String(txt)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function abrirCarrito() {
       const overlay = document.getElementById('carritoOverlay');
       const itemsEl = document.getElementById('carritoItems');
@@ -1382,38 +1709,77 @@
       const totalEl = document.getElementById('carritoTotalModal');
       overlay.classList.add('visible');
 
-      const pendientes = carritoItems.filter((it) => {
-        const key = `${MESA_NUMERO}::${normalizar(it.nombre)}::${it.cantidad}`;
-        return !lineasEnviadasCocina.has(key);
-      });
-      if (btnCocina) {
-        btnCocina.disabled = pendientes.length === 0;
-        btnCocina.textContent = pendientes.length === 0
-          ? '✓ Enviado a cocina'
-          : 'Enviar a cocina';
+      renderItemsCarrito();
+
+      function renderItemsCarrito() {
+        if (carritoItems.length === 0) {
+          itemsEl.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:18px 0;">Aún no has añadido nada al pedido.</p>';
+        } else {
+          itemsEl.innerHTML = carritoItems.map((i) => {
+            const cantidad = Number(i.cantidad) || 1;
+            const enviada = Number(i.cantidadEnviada) || 0;
+            const precioUnit = Number(i.precio) || 0;
+            const subtotal = precioUnit * cantidad;
+            const precioMostrado = subtotal > 0
+              ? subtotal.toFixed(2).replace('.', ',') + '€'
+              : '—';
+            const nombreSeguro = escapeHtml(i.nombre);
+            const minusDisabled = cantidad <= enviada ? 'disabled' : '';
+            const aviso = enviada > 0
+              ? `<div class="modal-item-enviado">${enviada} ud. ya en cocina</div>`
+              : '';
+            return `
+              <div class="modal-item">
+                <div class="modal-item-nombre">
+                  ${nombreSeguro}
+                  ${aviso}
+                </div>
+                <div class="modal-item-stepper" data-nombre="${nombreSeguro}">
+                  <button type="button" class="modal-stepper-menos" aria-label="Restar" ${minusDisabled}>−</button>
+                  <span>${cantidad}</span>
+                  <button type="button" class="modal-stepper-mas" aria-label="Sumar">+</button>
+                </div>
+                <span class="modal-item-precio">${precioMostrado}</span>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const pendientesUnidades = carritoItems.reduce(
+          (acc, it) => acc + Math.max(0, (Number(it.cantidad) || 0) - (Number(it.cantidadEnviada) || 0)),
+          0
+        );
+        if (btnCocina) {
+          btnCocina.disabled = pendientesUnidades === 0;
+          btnCocina.textContent = pendientesUnidades === 0
+            ? '✓ Enviado a cocina'
+            : 'Enviar a cocina';
+        }
+
+        if (totalEl) {
+          const total = calcularTotalCarrito();
+          totalEl.textContent = total > 0
+            ? total.toFixed(2).replace('.', ',') + '€'
+            : '0,00€';
+        }
       }
 
-      itemsEl.innerHTML = carritoItems.map((i) => {
-        const cantidad = Number(i.cantidad) || 1;
-        const precioUnit = Number(i.precio) || 0;
-        const subtotal = precioUnit * cantidad;
-        const precioMostrado = subtotal > 0
-          ? subtotal.toFixed(2).replace('.', ',') + '€'
-          : '—';
-        return `
-          <div class="modal-item">
-            <span class="modal-item-nombre">${cantidad}× ${i.nombre}</span>
-            <span class="modal-item-precio">${precioMostrado}</span>
-          </div>
-        `;
-      }).join('');
-
-      if (totalEl) {
-        const total = calcularTotalCarrito();
-        totalEl.textContent = total > 0
-          ? total.toFixed(2).replace('.', ',') + '€'
-          : '0,00€';
-      }
+      // Re-renderizar el modal cuando el carrito cambie desde sus propios
+      // steppers (delegación de clicks).
+      itemsEl.onclick = function (e) {
+        const stepBtn = e.target.closest('.modal-item-stepper button');
+        if (!stepBtn) return;
+        e.stopPropagation();
+        const wrap = stepBtn.closest('.modal-item-stepper');
+        const nombre = wrap?.dataset.nombre;
+        if (!nombre) return;
+        const delta = stepBtn.classList.contains('modal-stepper-mas') ? +1 : -1;
+        if (cambiarCantidadProducto(nombre, delta)) {
+          actualizarCarritoUI();
+          actualizarSteppersUI();
+          renderItemsCarrito();
+        }
+      };
     }
 
     function cerrarCarrito(e) {

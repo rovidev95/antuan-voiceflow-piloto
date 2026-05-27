@@ -27,3 +27,12 @@
   from = "/cocina"
   to = "/cocina.html"
   status = 200
+
+# Proxy de las llamadas API al backend (Voiceflow proxy + persistencia de
+# pedidos) que corre en Railway. Hacerlo desde Netlify evita que el
+# navegador tenga que negociar CORS contra el dominio de Railway.
+[[redirects]]
+  from = "/api/*"
+  to = "https://affectionate-clarity-production-f27b.up.railway.app/api/:splat"
+  status = 200
+  force = true

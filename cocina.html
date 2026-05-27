@@ -403,7 +403,11 @@
   <div class="contador" id="contador">0</div>
 
   <script>
-    const PROXY_URL = 'https://affectionate-clarity-production-f27b.up.railway.app';
+    // En Netlify usamos los rewrites de netlify.toml para llamar a /api/*
+    // desde el propio dominio (sin CORS). En cualquier otro entorno
+    // (localhost, abrir el HTML directamente, etc.) vamos contra Railway.
+    const RAILWAY_URL = 'https://affectionate-clarity-production-f27b.up.railway.app';
+    const PROXY_URL = /\.netlify\.app$/i.test(location.hostname) ? '' : RAILWAY_URL;
     const POLL_MS = 3000;
 
     // Estado de la UI

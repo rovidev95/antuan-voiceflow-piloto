@@ -14,6 +14,10 @@ const VOICEFLOW_VERSION_ID = process.env.VOICEFLOW_VERSION_ID || 'main';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'pedidos.json');
 const TMP_FILE = path.join(DATA_DIR, 'pedidos.tmp.json');
+const USAGE_FILE = path.join(DATA_DIR, 'voiceflow-usage.json');
+const USAGE_TMP_FILE = path.join(DATA_DIR, 'voiceflow-usage.tmp.json');
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const AUDIT_STORE_TEXT = process.env.AUDIT_STORE_TEXT === 'true';
 
 // Retención de pedidos en disco: limpieza periódica de los "listos" antiguos
 // para que `pedidos.json` no crezca de forma indefinida.
@@ -72,9 +76,13 @@ function normalizarEstado(estado) {
 
 let pedidos = [];
 let pedidoSeq = 0;
+let voiceflowUsage = [];
 let saveTimer = null;
 let saving = false;
 let pendingSave = false;
+let usageSaveTimer = null;
+let usageSaving = false;
+let usagePendingSave = false;
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -127,6 +135,23 @@ function cargarPedidos() {
   }
 }
 
+function cargarVoiceflowUsage() {
+  try {
+    ensureDataDir();
+    if (!fs.existsSync(USAGE_FILE)) {
+      voiceflowUsage = [];
+      return;
+    }
+    const raw = fs.readFileSync(USAGE_FILE, 'utf8');
+    voiceflowUsage = raw.trim() ? JSON.parse(raw) : [];
+    if (!Array.isArray(voiceflowUsage)) voiceflowUsage = [];
+    console.log(`Auditoría Voiceflow cargada: ${voiceflowUsage.length} registros`);
+  } catch (err) {
+    console.error('No se pudo cargar la auditoría Voiceflow:', err);
+    voiceflowUsage = [];
+  }
+}
+
 async function escribirAtomico() {
   ensureDataDir();
   const payload = JSON.stringify(
@@ -136,6 +161,13 @@ async function escribirAtomico() {
   );
   await fs.promises.writeFile(TMP_FILE, payload, 'utf8');
   await fs.promises.rename(TMP_FILE, DATA_FILE);
+}
+
+async function escribirUsageAtomico() {
+  ensureDataDir();
+  const payload = JSON.stringify(voiceflowUsage, null, 2);
+  await fs.promises.writeFile(USAGE_TMP_FILE, payload, 'utf8');
+  await fs.promises.rename(USAGE_TMP_FILE, USAGE_FILE);
 }
 
 async function guardarPedidos() {
@@ -158,12 +190,39 @@ async function guardarPedidos() {
   }
 }
 
+async function guardarVoiceflowUsage() {
+  if (usageSaving) {
+    usagePendingSave = true;
+    return;
+  }
+  usageSaving = true;
+  try {
+    await escribirUsageAtomico();
+  } catch (err) {
+    console.error('Error guardando auditoría Voiceflow:', err);
+  } finally {
+    usageSaving = false;
+    if (usagePendingSave) {
+      usagePendingSave = false;
+      guardarVoiceflowUsage();
+    }
+  }
+}
+
 function programarGuardado() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
     guardarPedidos();
   }, 150); // pequeño debounce para agrupar escrituras
+}
+
+function programarGuardadoUsage() {
+  if (usageSaveTimer) clearTimeout(usageSaveTimer);
+  usageSaveTimer = setTimeout(() => {
+    usageSaveTimer = null;
+    guardarVoiceflowUsage();
+  }, 150);
 }
 
 // Guardado síncrono al cerrar
@@ -182,16 +241,30 @@ function guardarSync() {
   }
 }
 
+function guardarUsageSync() {
+  try {
+    ensureDataDir();
+    const payload = JSON.stringify(voiceflowUsage, null, 2);
+    fs.writeFileSync(USAGE_TMP_FILE, payload, 'utf8');
+    fs.renameSync(USAGE_TMP_FILE, USAGE_FILE);
+  } catch (err) {
+    console.error('Error en guardado síncrono de auditoría:', err);
+  }
+}
+
 process.on('SIGINT', () => {
   guardarSync();
+  guardarUsageSync();
   process.exit(0);
 });
 process.on('SIGTERM', () => {
   guardarSync();
+  guardarUsageSync();
   process.exit(0);
 });
 
 cargarPedidos();
+cargarVoiceflowUsage();
 
 /* =============================================================
  * LIMPIEZA PERIÓDICA
@@ -318,6 +391,154 @@ function filtrarPedidos({ estado, estados, mesa, since }) {
   return lista;
 }
 
+function extraerTextoUsuario(body) {
+  const payload = body?.action?.payload;
+  return typeof payload === 'string' ? payload : '';
+}
+
+function contarTextosVoiceflow(body) {
+  if (!Array.isArray(body)) return { count: 0, chars: 0, types: [] };
+  const types = [];
+  let count = 0;
+  let chars = 0;
+  body.forEach((trace) => {
+    if (trace?.type) types.push(trace.type);
+    if (trace?.type !== 'text' && trace?.type !== 'speak') return;
+    const msg = trace?.payload?.message;
+    if (typeof msg !== 'string') return;
+    count += 1;
+    chars += msg.length;
+  });
+  return { count, chars, types: [...new Set(types)] };
+}
+
+function estimarTokens(chars) {
+  return Math.ceil((Number(chars) || 0) / 4);
+}
+
+function extraerHeadersUso(headers) {
+  const usage = {};
+  headers.forEach((value, key) => {
+    const k = key.toLowerCase();
+    if (
+      k.includes('token') ||
+      k.includes('usage') ||
+      k.includes('credit') ||
+      k.includes('quota') ||
+      k.includes('limit')
+    ) {
+      usage[key] = value;
+    }
+  });
+  return usage;
+}
+
+function registrarUsoVoiceflow({
+  sessionId,
+  status,
+  latencyMs,
+  requestBody,
+  responseBody,
+  responseHeaders,
+  error,
+}) {
+  const userText = extraerTextoUsuario(requestBody);
+  const responseInfo = contarTextosVoiceflow(responseBody);
+  const inputChars = userText.length;
+  const outputChars = responseInfo.chars;
+  const record = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ts: Date.now(),
+    iso: new Date().toISOString(),
+    sessionId,
+    actionType: requestBody?.action?.type || null,
+    status,
+    ok: status >= 200 && status < 300 && !error,
+    latencyMs,
+    inputChars,
+    outputChars,
+    estimatedInputTokens: estimarTokens(inputChars),
+    estimatedOutputTokens: estimarTokens(outputChars),
+    estimatedTotalTokens: estimarTokens(inputChars + outputChars),
+    responseMessages: responseInfo.count,
+    traceTypes: responseInfo.types,
+    upstreamUsageHeaders: responseHeaders || {},
+    error: error ? String(error.message || error) : null,
+  };
+
+  if (AUDIT_STORE_TEXT) {
+    record.userText = userText;
+    record.responsePreview = Array.isArray(responseBody)
+      ? responseBody
+          .filter((trace) => trace?.type === 'text' || trace?.type === 'speak')
+          .map((trace) => trace?.payload?.message)
+          .filter(Boolean)
+          .join('\n')
+          .slice(0, 1000)
+      : '';
+  }
+
+  voiceflowUsage.unshift(record);
+  if (voiceflowUsage.length > 5000) voiceflowUsage.length = 5000;
+  programarGuardadoUsage();
+  console.info(
+    `Voiceflow ${status} ${latencyMs}ms session=${sessionId} est_tokens=${record.estimatedTotalTokens}`
+  );
+}
+
+function requireAdmin(req, res, next) {
+  if (!ADMIN_TOKEN) return next();
+  const token = req.headers['x-admin-token'] || req.query.token;
+  if (token !== ADMIN_TOKEN) {
+    res.status(401).json({ error: 'admin token requerido' });
+    return;
+  }
+  next();
+}
+
+function resumenUsoVoiceflow(records) {
+  const total = records.length;
+  const ok = records.filter((r) => r.ok).length;
+  const estimatedTotalTokens = records.reduce(
+    (acc, r) => acc + (Number(r.estimatedTotalTokens) || 0),
+    0
+  );
+  const avgLatencyMs = total
+    ? Math.round(records.reduce((acc, r) => acc + (Number(r.latencyMs) || 0), 0) / total)
+    : 0;
+  const byAction = records.reduce((acc, r) => {
+    const key = r.actionType || 'unknown';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const byStatus = records.reduce((acc, r) => {
+    const key = String(r.status || 'error');
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    totalRequests: total,
+    okRequests: ok,
+    failedRequests: total - ok,
+    estimatedTotalTokens,
+    estimatedInputTokens: records.reduce(
+      (acc, r) => acc + (Number(r.estimatedInputTokens) || 0),
+      0
+    ),
+    estimatedOutputTokens: records.reduce(
+      (acc, r) => acc + (Number(r.estimatedOutputTokens) || 0),
+      0
+    ),
+    avgLatencyMs,
+    byAction,
+    byStatus,
+    exactUsageHeadersAvailable: records.some(
+      (r) => r.upstreamUsageHeaders && Object.keys(r.upstreamUsageHeaders).length > 0
+    ),
+  };
+}
+
 /* =============================================================
  * RUTAS
  * ============================================================= */
@@ -335,6 +556,8 @@ app.get('/', (_req, res) => {
     },
     endpoints: [
       'POST /api/state/user/:sessionId/interact',
+      'GET /api/voiceflow-usage',
+      'GET /api/voiceflow-usage/summary',
       'GET /api/pedidos?estado=pendiente|en_preparacion|listo|activos&mesa=X',
       'GET /api/pedidos/mesa/:mesa',
       'POST /api/pedidos',
@@ -345,7 +568,7 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, pedidos: pedidos.length });
+  res.json({ ok: true, pedidos: pedidos.length, voiceflowUsage: voiceflowUsage.length });
 });
 
 /* ---------- VOICEFLOW PROXY ---------- */
@@ -354,6 +577,7 @@ const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 
 app.post('/api/state/user/:sessionId/interact', async (req, res) => {
   const { sessionId } = req.params;
+  const startedAt = Date.now();
 
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     res.status(400).json({ error: 'sessionId inválido' });
@@ -374,9 +598,19 @@ app.post('/api/state/user/:sessionId/interact', async (req, res) => {
     });
 
     const contentType = upstream.headers.get('content-type') || '';
+    const usageHeaders = extraerHeadersUso(upstream.headers);
     const body = contentType.includes('application/json')
       ? await upstream.json()
       : await upstream.text();
+
+    registrarUsoVoiceflow({
+      sessionId,
+      status: upstream.status,
+      latencyMs: Date.now() - startedAt,
+      requestBody: req.body,
+      responseBody: body,
+      responseHeaders: usageHeaders,
+    });
 
     res.status(upstream.status);
     if (typeof body === 'string') {
@@ -386,8 +620,52 @@ app.post('/api/state/user/:sessionId/interact', async (req, res) => {
     }
   } catch (err) {
     console.error('Error al contactar Voiceflow:', err);
+    registrarUsoVoiceflow({
+      sessionId,
+      status: 502,
+      latencyMs: Date.now() - startedAt,
+      requestBody: req.body,
+      responseBody: null,
+      responseHeaders: {},
+      error: err,
+    });
     res.status(502).json({ error: 'No se pudo conectar con Voiceflow' });
   }
+});
+
+/* ---------- AUDITORÍA VOICEFLOW ---------- */
+
+app.get('/api/voiceflow-usage', requireAdmin, (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 1000);
+  const sessionId = req.query.sessionId ? String(req.query.sessionId) : null;
+  const since = Number(req.query.since) || 0;
+  const records = voiceflowUsage
+    .filter((r) => (!sessionId || r.sessionId === sessionId) && (!since || r.ts >= since))
+    .slice(0, limit);
+  res.json({
+    summary: resumenUsoVoiceflow(records),
+    records,
+    note:
+      'Los tokens son estimados salvo que upstreamUsageHeaders incluya datos reales devueltos por Voiceflow.',
+  });
+});
+
+app.get('/api/voiceflow-usage/summary', requireAdmin, (req, res) => {
+  const since = Number(req.query.since) || 0;
+  const records = voiceflowUsage.filter((r) => !since || r.ts >= since);
+  res.json({
+    ...resumenUsoVoiceflow(records),
+    recordsStored: voiceflowUsage.length,
+    note:
+      'Voiceflow Runtime no siempre devuelve tokens/coste exactos; si no hay headers de uso, son estimaciones por caracteres.',
+  });
+});
+
+app.delete('/api/voiceflow-usage', requireAdmin, (_req, res) => {
+  const deleted = voiceflowUsage.length;
+  voiceflowUsage = [];
+  programarGuardadoUsage();
+  res.json({ ok: true, deleted });
 });
 
 /* ---------- PEDIDOS ---------- */

@@ -21,6 +21,8 @@ Servidor Node.js (Express) que cumple dos funciones:
 | `VOICEFLOW_API_URL` | No | Por defecto `https://general-runtime.voiceflow.com` |
 | `VOICEFLOW_VERSION_ID` | No | Alias de Voiceflow (`main`, no `production` en proyectos nuevos) |
 | `DATA_DIR` | No | Carpeta donde persistir `pedidos.json`. Por defecto `./data` |
+| `ADMIN_TOKEN` | Recomendada | Token para proteger endpoints de auditoría Voiceflow |
+| `AUDIT_STORE_TEXT` | No | `false` por defecto. Si es `true`, guarda extractos de mensajes |
 | `PORT` | No | Railway lo asigna automáticamente |
 
 Ejemplo `.env`:
@@ -30,6 +32,8 @@ VOICEFLOW_API_KEY=VF.DM.xxxxx
 VOICEFLOW_VERSION_ID=main
 ALLOWED_ORIGINS=https://bright-sorbet-e94b45.netlify.app
 DATA_DIR=/app/data
+ADMIN_TOKEN=pon_un_token_largo
+AUDIT_STORE_TEXT=false
 ```
 
 ## Persistencia de pedidos
@@ -62,6 +66,9 @@ El historial completo de transiciones se guarda en `pedido.historial`.
 | `GET` | `/` | Info del servicio + conteos |
 | `GET` | `/health` | Health check (Railway lo usa) |
 | `POST` | `/api/state/user/:sessionId/interact` | Proxy al runtime de Voiceflow |
+| `GET` | `/api/voiceflow-usage/summary` | Resumen de llamadas a Voiceflow |
+| `GET` | `/api/voiceflow-usage?limit=100` | Últimas llamadas auditadas |
+| `DELETE` | `/api/voiceflow-usage` | Vacía la auditoría |
 | `GET` | `/api/pedidos?estado=...&mesa=...` | Lista pedidos. `estado` admite `pendiente`, `en_preparacion`, `listo`, `activos`, `todos` |
 | `GET` | `/api/pedidos/mesa/:mesa` | Todos los pedidos (histórico) de una mesa |
 | `POST` | `/api/pedidos` | Registra un pedido nuevo |
@@ -84,6 +91,31 @@ Cuerpo de `PATCH /api/pedidos/:id`:
 ```json
 { "estado": "en_preparacion" }
 ```
+
+## Auditoría de uso Voiceflow
+
+Cada llamada al endpoint `/api/state/user/:sessionId/interact` registra:
+
+- Fecha/hora, `sessionId`, tipo de acción (`text`, `launch`, etc.)
+- Código HTTP de Voiceflow y latencia
+- Caracteres de entrada y salida
+- Estimación de tokens (`chars / 4`)
+- Tipos de trazas devueltas por Voiceflow (`text`, `speak`, etc.)
+- Cabeceras de uso/cupo si Voiceflow las devuelve
+
+Consulta:
+
+```bash
+curl -H "x-admin-token: TU_TOKEN" \
+  https://affectionate-clarity-production-f27b.up.railway.app/api/voiceflow-usage/summary
+
+curl -H "x-admin-token: TU_TOKEN" \
+  "https://affectionate-clarity-production-f27b.up.railway.app/api/voiceflow-usage?limit=50"
+```
+
+También funciona desde el navegador con `?token=TU_TOKEN`, aunque para producción es mejor la cabecera.
+
+> Nota: Voiceflow Runtime normalmente no devuelve el coste exacto por tokens/modelo en la respuesta. Si no aparecen datos en `upstreamUsageHeaders`, el proxy muestra una **estimación** por tamaño de texto. El consumo exacto facturado debe contrastarse en el panel de Voiceflow.
 
 ## URLs de producción
 
@@ -144,3 +176,5 @@ curl -X PATCH http://localhost:3000/api/pedidos/1 \
 - La API key sólo vive en Railway.
 - Rotar la key de Voiceflow si estuvo expuesta en el HTML antiguo.
 - Mantén `ALLOWED_ORIGINS` acotado al dominio de producción.
+- Configura `ADMIN_TOKEN` antes de exponer los endpoints de auditoría.
+- Mantén `AUDIT_STORE_TEXT=false` salvo que necesites depurar conversaciones concretas.

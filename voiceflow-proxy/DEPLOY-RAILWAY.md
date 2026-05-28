@@ -44,6 +44,8 @@ Crea el repo en GitHub y haz `git push`. El `.gitignore` ya excluye `node_module
 | `VOICEFLOW_VERSION_ID` | `main` |
 | `ALLOWED_ORIGINS` | `https://bright-sorbet-e94b45.netlify.app` |
 | `DATA_DIR` | `/app/data` |
+| `ADMIN_TOKEN` | Token largo para consultar auditoría |
+| `AUDIT_STORE_TEXT` | `false` |
 
 5. **Settings → Volumes → Add Volume**:
    - Mount path: `/app/data`
@@ -80,6 +82,17 @@ https://affectionate-clarity-production-f27b.up.railway.app/health
 - Cocina pulsa **✓ Listo** → la mesa ve "¡Listo! ✅" y un aviso en el chat.
 
 **Persistencia:** redeploya Railway. Los pedidos siguen ahí.
+
+**Auditoría Voiceflow:**
+
+```text
+GET /api/voiceflow-usage/summary
+GET /api/voiceflow-usage?limit=50
+```
+
+Enviar la cabecera `x-admin-token` con el valor de `ADMIN_TOKEN`.
+
+Estos endpoints muestran número de llamadas, latencia, errores y tokens estimados. Si Voiceflow no devuelve cabeceras de uso, el dato de tokens no es exacto sino aproximado.
 
 ## 5. Rotar API key (recomendado)
 

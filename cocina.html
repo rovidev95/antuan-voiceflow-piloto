@@ -147,6 +147,52 @@
       gap: 16px;
     }
 
+    /* SECCIONES BEBIDA / COMIDA dentro de cada pedido */
+    .item-grupo {
+      margin-top: 8px;
+    }
+    .item-grupo-titulo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #777;
+      font-weight: 700;
+      padding: 4px 0;
+      border-bottom: 1px dashed #2A2A2A;
+      margin-bottom: 4px;
+    }
+    .item-grupo-titulo .icono { font-size: 13px; }
+    .item-grupo.bebida .item-grupo-titulo { color: #6BB6FF; }
+    .item-grupo.comida .item-grupo-titulo { color: #FF8C00; }
+
+    /* AVISOS (cuenta a pagar) */
+    .pedido-bloque.aviso-cuenta {
+      background: linear-gradient(135deg, rgba(0,200,100,0.10), rgba(0,200,100,0.02));
+      border: 2px solid rgba(0,200,100,0.5);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+    .pedido-bloque.aviso-cuenta .aviso-titulo {
+      font-size: 17px;
+      font-weight: 900;
+      color: #00C864;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .pedido-bloque.aviso-cuenta .aviso-detalle {
+      font-size: 13px;
+      color: #BBB;
+    }
+    .pedido-bloque.aviso-cuenta.metodo-tarjeta .aviso-titulo { color: #6BB6FF; }
+    .pedido-bloque.aviso-cuenta.metodo-tarjeta {
+      background: linear-gradient(135deg, rgba(107,182,255,0.10), rgba(107,182,255,0.02));
+      border-color: rgba(107,182,255,0.5);
+    }
+
     /* TARJETA DE MESA */
     .mesa-card {
       background: #1A1A1A;
@@ -506,9 +552,10 @@
     async function cancelarPedido(id) {
       if (!confirm('¿Cancelar este pedido?')) return;
       try {
-        const res = await fetch(`${PROXY_URL}/api/pedidos/${encodeURIComponent(id)}`, {
-          method: 'DELETE'
-        });
+        const res = await fetch(
+          `${PROXY_URL}/api/pedidos/${encodeURIComponent(id)}?force=1`,
+          { method: 'DELETE' }
+        );
         if (!res.ok) throw new Error('cancelar');
         pedidos = pedidos.filter((p) => p.id !== id);
         idsConocidos.delete(id);
@@ -621,6 +668,187 @@
         .replaceAll("'", '&#39;');
     }
 
+    /* =========================================================
+     * CATEGORIZACIÓN BEBIDA / COMIDA
+     * Heurística por palabras clave + lista de bebidas conocidas
+     * del menú, para que cocina vea cada pedido dividido.
+     * ========================================================= */
+    const PATRONES_BEBIDA = [
+      /\bcaña\b/i, /\bcanya\b/i, /\bcerveza/i, /\bbirra/i,
+      /\bagua\b/i, /\bvino\b/i, /\bcopa\b/i, /\brefresco/i,
+      /\bcoca[\s-]?cola/i, /\bfanta\b/i, /\bsprite\b/i,
+      /\btonica\b/i, /\btónica\b/i, /\baquarius/i, /\bnestea/i,
+      /\bzumo\b/i, /\bbatido\b/i, /\bcafé\b/i, /\bcafe\b/i,
+      /\bté\b/i, /\bte\b/i, /\bmojito/i, /\bmargarita/i,
+      /\bcaipirinha/i, /\bdaiquiri/i, /\bnegroni/i,
+      /\bcolada/i, /\bpisco/i, /\bmoscow mule/i, /\bbloody/i,
+      /\bwhisky/i, /\bespresso martini/i, /\bvermouth/i,
+      /\bvermut/i, /\baperol/i, /\bspritz/i, /\bpaloma/i,
+      /\bsan francisco/i, /\bvirgin/i, /\bpink tonic/i,
+      /\bpaulaner/i, /\bheineken/i, /\bamstel/i, /\bcruzcampo/i,
+      /\baguila\b/i, /\bágila\b/i, /\báguila\b/i,
+      /\b18\/70\b/i, /\bla rubia\b/i, /\bbotellín/i, /\bbotellin/i,
+      /\bcroft twist/i
+    ];
+
+    function esBebida(nombre) {
+      if (!nombre) return false;
+      return PATRONES_BEBIDA.some((re) => re.test(nombre));
+    }
+
+    function clasificarItems(items) {
+      const bebidas = [];
+      const comidas = [];
+      (items || []).forEach((it) => {
+        if (esBebida(it.nombre)) bebidas.push(it);
+        else comidas.push(it);
+      });
+      return { bebidas, comidas };
+    }
+
+    function renderItemsBloqueHTML(items) {
+      return items
+        .map(
+          (item) => `
+        <div class="item">
+          <div class="item-cantidad">${item.cantidad}</div>
+          <div>
+            <div class="item-nombre">${escapeHtml(item.nombre)}</div>
+            ${
+              item.nota
+                ? `<div class="item-nota">⚠️ ${escapeHtml(item.nota)}</div>`
+                : ''
+            }
+          </div>
+        </div>
+      `
+        )
+        .join('');
+    }
+
+    function esAvisoCuenta(pedido) {
+      return (
+        Array.isArray(pedido.items) &&
+        pedido.items.length === 1 &&
+        typeof pedido.items[0].nombre === 'string' &&
+        pedido.items[0].nombre.startsWith('🧾')
+      );
+    }
+
+    function metodoDePago(pedido) {
+      const nombre = pedido.items?.[0]?.nombre || '';
+      if (/tarjeta/i.test(nombre)) return 'tarjeta';
+      if (/efectivo/i.test(nombre)) return 'efectivo';
+      return null;
+    }
+
+    function renderPedidoBloqueHTML(p) {
+      const acciones = `
+        <div class="pedido-acciones">
+          ${
+            p.estado === 'pendiente'
+              ? `<button class="btn-accion btn-empezar" onclick="cambiarEstado('${p.id}','en_preparacion')">▶ Empezar</button>`
+              : ''
+          }
+          ${
+            p.estado === 'en_preparacion'
+              ? `<button class="btn-accion btn-listo" onclick="cambiarEstado('${p.id}','listo')">✓ Listo</button>`
+              : ''
+          }
+          ${
+            p.estado === 'listo'
+              ? `<button class="btn-accion btn-listo" disabled>✓ Listo</button>`
+              : ''
+          }
+          ${
+            p.estado !== 'listo'
+              ? `<button class="btn-accion btn-cancelar" onclick="cancelarPedido('${p.id}')" title="Cancelar pedido">✕</button>`
+              : ''
+          }
+        </div>`;
+
+      // Pedido especial: aviso de cuenta a pagar
+      if (esAvisoCuenta(p)) {
+        const metodo = metodoDePago(p);
+        const icono = metodo === 'tarjeta' ? '💳' : '💵';
+        const texto = metodo === 'tarjeta' ? 'Pagar con TARJETA' : 'Pagar en EFECTIVO';
+        return `
+          <div class="pedido-bloque aviso-cuenta metodo-${metodo || 'efectivo'}"
+               data-pedido-id="${escapeHtml(p.id)}" data-estado="${escapeHtml(p.estado)}">
+            <div class="pedido-bloque-header">
+              <span>Aviso · ${escapeHtml(p.hora || '')}</span>
+              <span class="pedido-bloque-estado estado-pill-${p.estado}">${etiquetaEstado(p.estado)}</span>
+            </div>
+            <div class="aviso-titulo">${icono} ${texto}</div>
+            <div class="aviso-detalle">El cliente pide la cuenta. Llévala a la mesa.</div>
+            ${acciones}
+          </div>
+        `;
+      }
+
+      const { bebidas, comidas } = clasificarItems(p.items);
+      const grupoBebida = bebidas.length
+        ? `<div class="item-grupo bebida">
+             <div class="item-grupo-titulo"><span class="icono">🥤</span> Bebida · ${bebidas.reduce((s, i) => s + (i.cantidad || 1), 0)} ud.</div>
+             ${renderItemsBloqueHTML(bebidas)}
+           </div>`
+        : '';
+      const grupoComida = comidas.length
+        ? `<div class="item-grupo comida">
+             <div class="item-grupo-titulo"><span class="icono">🍽️</span> Comida · ${comidas.reduce((s, i) => s + (i.cantidad || 1), 0)} ud.</div>
+             ${renderItemsBloqueHTML(comidas)}
+           </div>`
+        : '';
+
+      return `
+        <div class="pedido-bloque" data-pedido-id="${escapeHtml(p.id)}" data-estado="${escapeHtml(p.estado)}">
+          <div class="pedido-bloque-header">
+            <span>Pedido #${escapeHtml(p.id)} · ${escapeHtml(p.hora || '')}</span>
+            <span class="pedido-bloque-estado estado-pill-${p.estado}">${etiquetaEstado(p.estado)}</span>
+          </div>
+          ${grupoBebida}
+          ${grupoComida}
+          ${acciones}
+        </div>
+      `;
+    }
+
+    function renderMesaCardHTML(grupo) {
+      const totalItems = grupo.pedidos.reduce(
+        (acc, p) => acc + p.items.reduce((s, i) => s + (i.cantidad || 1), 0),
+        0
+      );
+      const ahora = Date.now();
+      const tiempo = Math.max(
+        0,
+        Math.floor((ahora - grupo.createdAt) / 60000)
+      );
+      const hayPendiente = grupo.pedidos.some(
+        (p) => p.estado === 'pendiente'
+      );
+
+      return `
+        <div class="mesa-header">
+          <div>
+            <div class="mesa-numero">${escapeHtml(grupo.mesa)}</div>
+            <div class="mesa-label">Mesa · ${totalItems} ${
+        totalItems === 1 ? 'producto' : 'productos'
+      }</div>
+          </div>
+          <div class="mesa-meta">
+            ${tiempo > 0 ? `hace ${tiempo} min` : 'hace un momento'}
+            ${hayPendiente ? '<br><div class="nuevo-badge">NUEVO</div>' : ''}
+          </div>
+        </div>
+        ${grupo.pedidos.map(renderPedidoBloqueHTML).join('')}
+      `;
+    }
+
+    /**
+     * Render incremental: solo crea/elimina/actualiza las tarjetas de
+     * mesa que han cambiado. Mantiene el resto del DOM intacto para
+     * evitar el parpadeo del antiguo grid.innerHTML = ... cada 3s.
+     */
     function renderizar() {
       actualizarContadores();
 
@@ -631,100 +859,60 @@
 
       if (visibles.length === 0) {
         empty.style.display = 'flex';
-        grid.innerHTML = '';
+        // Quitar tarjetas existentes sin afectar al empty state
+        while (grid.firstChild) grid.removeChild(grid.firstChild);
         return;
       }
       empty.style.display = 'none';
 
       const grupos = agruparPorMesa(visibles);
+      const mesasVisibles = new Set(grupos.map((g) => String(g.mesa)));
 
-      grid.innerHTML = grupos
-        .map((grupo) => {
-          const totalItems = grupo.pedidos.reduce(
-            (acc, p) => acc + p.items.reduce((s, i) => s + (i.cantidad || 1), 0),
+      // Eliminar tarjetas de mesas que ya no están
+      Array.from(grid.children).forEach((card) => {
+        const mesa = card.dataset.mesa;
+        if (!mesasVisibles.has(mesa)) {
+          grid.removeChild(card);
+        }
+      });
+
+      // Crear / actualizar / reordenar las visibles
+      grupos.forEach((grupo, index) => {
+        const mesaKey = String(grupo.mesa);
+        let card = grid.querySelector(`[data-mesa="${CSS.escape(mesaKey)}"]`);
+        const html = renderMesaCardHTML(grupo);
+        const classNameDeseado = `mesa-card estado-${grupo.estadoUrgente}`;
+        const huellaActual = JSON.stringify({
+          ids: grupo.pedidos.map((p) => `${p.id}:${p.estado}:${(p.items || []).length}`),
+          totalItems: grupo.pedidos.reduce(
+            (s, p) => s + p.items.reduce((a, i) => a + (i.cantidad || 1), 0),
             0
-          );
-          const ahora = Date.now();
-          const tiempo = Math.max(
-            0,
-            Math.floor((ahora - grupo.createdAt) / 60000)
-          );
-          const hayPendiente = grupo.pedidos.some(
-            (p) => p.estado === 'pendiente'
-          );
+          ),
+          estado: grupo.estadoUrgente,
+        });
 
-          return `
-            <div class="mesa-card estado-${grupo.estadoUrgente}">
-              <div class="mesa-header">
-                <div>
-                  <div class="mesa-numero">${escapeHtml(grupo.mesa)}</div>
-                  <div class="mesa-label">Mesa · ${totalItems} ${
-            totalItems === 1 ? 'producto' : 'productos'
-          }</div>
-                </div>
-                <div class="mesa-meta">
-                  ${tiempo > 0 ? `hace ${tiempo} min` : 'hace un momento'}
-                  ${hayPendiente ? '<br><div class="nuevo-badge">NUEVO</div>' : ''}
-                </div>
-              </div>
+        if (!card) {
+          card = document.createElement('div');
+          card.className = classNameDeseado;
+          card.dataset.mesa = mesaKey;
+          card.dataset.huella = huellaActual;
+          card.innerHTML = html;
+        } else {
+          if (card.className !== classNameDeseado) {
+            card.className = classNameDeseado;
+          }
+          // Solo regeneramos el innerHTML si hay cambios reales
+          if (card.dataset.huella !== huellaActual) {
+            card.innerHTML = html;
+            card.dataset.huella = huellaActual;
+          }
+        }
 
-              ${grupo.pedidos
-                .map(
-                  (p) => `
-                <div class="pedido-bloque">
-                  <div class="pedido-bloque-header">
-                    <span>Pedido #${escapeHtml(p.id)} · ${escapeHtml(p.hora || '')}</span>
-                    <span class="pedido-bloque-estado estado-pill-${p.estado}">${etiquetaEstado(
-                    p.estado
-                  )}</span>
-                  </div>
-                  ${p.items
-                    .map(
-                      (item) => `
-                    <div class="item">
-                      <div class="item-cantidad">${item.cantidad}</div>
-                      <div>
-                        <div class="item-nombre">${escapeHtml(item.nombre)}</div>
-                        ${
-                          item.nota
-                            ? `<div class="item-nota">⚠️ ${escapeHtml(item.nota)}</div>`
-                            : ''
-                        }
-                      </div>
-                    </div>
-                  `
-                    )
-                    .join('')}
-                  <div class="pedido-acciones">
-                    ${
-                      p.estado === 'pendiente'
-                        ? `<button class="btn-accion btn-empezar" onclick="cambiarEstado('${p.id}','en_preparacion')">▶ Empezar</button>`
-                        : ''
-                    }
-                    ${
-                      p.estado === 'en_preparacion'
-                        ? `<button class="btn-accion btn-listo" onclick="cambiarEstado('${p.id}','listo')">✓ Listo</button>`
-                        : ''
-                    }
-                    ${
-                      p.estado === 'listo'
-                        ? `<button class="btn-accion btn-listo" disabled>✓ Listo</button>`
-                        : ''
-                    }
-                    ${
-                      p.estado !== 'listo'
-                        ? `<button class="btn-accion btn-cancelar" onclick="cancelarPedido('${p.id}')" title="Cancelar pedido">✕</button>`
-                        : ''
-                    }
-                  </div>
-                </div>
-              `
-                )
-                .join('')}
-            </div>
-          `;
-        })
-        .join('');
+        // Reordenar para que las tarjetas estén en el orden de `grupos`
+        if (grid.children[index] !== card) {
+          grid.insertBefore(card, grid.children[index] || null);
+        }
+      });
     }
 
     // Exponer para los handlers en HTML
@@ -733,6 +921,13 @@
 
     sincronizar();
     setInterval(sincronizar, POLL_MS);
+    // Refresco visual del tiempo "hace X min" cada 30 s
+    setInterval(() => {
+      Array.from(document.querySelectorAll('.mesa-card')).forEach((c) => {
+        c.dataset.huella = '';
+      });
+      renderizar();
+    }, 30000);
   </script>
 </body>
 </html>

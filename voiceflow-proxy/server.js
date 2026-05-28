@@ -791,6 +791,22 @@ app.delete('/api/pedidos/:id', (req, res) => {
     res.status(404).json({ error: 'pedido no encontrado' });
     return;
   }
+
+  const pedido = pedidos[idx];
+  // Si la petición viene del cliente (rol omitido o "cliente"), solo se
+  // permite cancelar mientras el pedido sigue en estado "pendiente". Una
+  // vez la cocina lo coge "en_preparacion" o lo deja "listo", el cliente
+  // ya no puede deshacerlo por sí mismo: tiene que avisar al camarero.
+  // El panel de cocina puede saltarse la restricción enviando ?force=1.
+  const force = req.query.force === '1' || req.query.force === 'true';
+  if (!force && pedido.estado !== 'pendiente') {
+    res.status(409).json({
+      error: 'no se puede cancelar: el pedido ya está en marcha',
+      estado: pedido.estado,
+    });
+    return;
+  }
+
   const [eliminado] = pedidos.splice(idx, 1);
   programarGuardado();
   res.json({ ok: true, eliminado });
